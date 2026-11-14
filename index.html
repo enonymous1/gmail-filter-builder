@@ -218,16 +218,13 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
           Start building
         </button>
-        <button class="btn" id="heroDownload" type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
-          Download filters (.xml)
-        </button>
         <a class="btn ghost" href="https://mail.google.com/mail/u/0/#settings/filters" target="_blank" rel="noopener">Open Gmail’s filter settings ↗</a>
       </div>
     </div>
     <div class="hero-side">
       <h2>How the round trip works</h2>
       <ol>
+        <li><b>Import (optional)</b> — already have filters? Export them from Gmail and bring them in here first.</li>
         <li><b>Build</b> — pick what a filter matches and what it does.</li>
         <li><b>Export</b> — download the <b>gmail-filters.xml</b> file this page generates.</li>
         <li><b>Import</b> — in Gmail: Settings → See all settings → Filters and Blocked Addresses → <b>Import filters</b>, choose the file, done.</li>
@@ -358,7 +355,7 @@
       <h2 id="importDialogTitle">Import filters</h2>
       <button class="icon-btn" id="importDialogClose" type="button" title="Close" aria-label="Close">✕</button>
     </div>
-    <p class="sub">Bring in a Gmail filter export (<code>mailFilters.xml</code>) — from Settings → Filters and Blocked Addresses → Export. Imported filters are added to your list; the two starter examples are replaced when any filters come in. Duplicates are not detected, and entries the app can’t read are reported, not swallowed.</p>
+    <p class="sub">Bring in a Gmail filter export (<code>mailFilters.xml</code>) — from Settings → Filters and Blocked Addresses → Export. Imported filters are added to your list; the starter examples are replaced when any filters come in. Duplicates are not detected, and entries the app can’t read are reported, not swallowed.</p>
     <label class="drop-zone" id="importDropZone">
       <span><b>Drop a .xml file here</b>, or click to browse</span>
       <input type="file" id="importFile" accept=".xml,text/xml,application/xml">
@@ -598,11 +595,12 @@
     return f;
   }
 
-  /* Starter examples — generic, removable; skipped when a saved list was restored. */
-  if (!loadSavedFilters()) {
-    filters.push(mkFilter({name:"Newsletters", has:"unsubscribe", actions:{skip:true, read:true, label:"Newsletters"}}, true));
-    filters.push(mkFilter({name:"Receipts", has:"(receipt OR invoice)", actions:{label:"Finance/Receipts"}}, true));
+  /* Starter examples — one per template, generic, removable;
+     skipped when a saved list was restored. */
+  function loadExamples(){
+    TEMPLATES.forEach(function(t){ var f = mkFilter(t.data, true); if (f) filters.push(f); });
   }
+  if (!loadSavedFilters()) loadExamples();
 
   /* ---------- Card drag handle ---------- */
   // The grip icon lives only on filter cards now (drag to reorder).
@@ -915,11 +913,11 @@
       empty.className = "empty-state";
       empty.innerHTML = "<h3>No filters yet</h3><p>Build one with New filter, load a template above, or import an XML file you exported from Gmail.</p>";
       var b = document.createElement("button");
-      b.className = "btn primary"; b.type = "button"; b.textContent = "Load the newsletter template";
-      b.addEventListener("click", function (e) {
-        clearBuilder();
-        loadIntoBuilder(TEMPLATES[0].data);
-        openDialog(e.currentTarget);
+      b.className = "btn primary"; b.type = "button"; b.textContent = "Load examples";
+      b.addEventListener("click", function () {
+        loadExamples();
+        render();
+        showToast("Loaded the starter examples — they’re demo data and never appear in an export.");
       });
       empty.appendChild(b);
       list.appendChild(empty);
@@ -1114,7 +1112,6 @@
     render();
   });
 
-  $("heroDownload").addEventListener("click", downloadXML);
   $("copyXmlBtn").addEventListener("click", copyXML);
   $("copyXmlBtn2").addEventListener("click", copyXML);
   /* ---------- Import dialog ---------- */
@@ -1303,6 +1300,7 @@
       getVisibleFilters: function(){ return visibleFilters(); },
       openImportDialog: openImportDialog, clearAllFilters: clearAllFilters,
       getImportDialog: function(){ return importDialog; },
+      loadExamples: loadExamples,
       getFilters: function () { return filters; },
       setFilters: function (list) { filters = list; render(); }
     };

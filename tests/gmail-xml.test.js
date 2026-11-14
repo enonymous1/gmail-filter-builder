@@ -121,10 +121,10 @@ ${entries}</feed>`;
 test("persistence: reload restores the list without duplicating starters", () => {
   const storage = makeStorage();
   let app = runApp(storage);
-  assert.equal(app.getFilters().length, 2);
-  assert.equal(JSON.parse(storage.getItem("gmail-filter-builder/v1")).length, 2);
+  assert.equal(app.getFilters().length, 5);
+  assert.equal(JSON.parse(storage.getItem("gmail-filter-builder/v1")).length, 5);
   app = runApp(storage);
-  assert.equal(app.getFilters().length, 2);
+  assert.equal(app.getFilters().length, 5);
   assert.equal(app.getFilters()[0].name, "Newsletters");
 });
 
@@ -228,8 +228,8 @@ test("modal: New filter opens a clean dialog; Edit loads the filter into it", ()
 test("examples never export; import replaces them only when it brings filters", () => {
   const app = runApp(makeStorage());
   const doc = app._document;
-  // Fresh page: only the two starters, and the export is empty.
-  assert.equal(app.getFilters().length, 2);
+  // Fresh page: only the five starters, and the export is empty.
+  assert.equal(app.getFilters().length, 5);
   assert.equal(app.exportableFilters().length, 0);
   assert.equal(app.buildXML().match(/<entry>/g)?.length || 0, 0);
   assert.match(doc.getElementById("filterCount").innerHTML, /<b>0<\/b> \/ 1000/);
@@ -247,7 +247,7 @@ test("examples never export; import replaces them only when it brings filters", 
   app2.importXMLText(GMAIL_XML(`
 <entry><category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:1</id><updated>2026-11-13T00:00:00Z</updated><content/>
 <apps:property name="bogusProp" value="x"/></entry>`));
-  assert.equal(app2.getFilters().length, 2);
+  assert.equal(app2.getFilters().length, 5);
   assert.equal(app2.exportableFilters().length, 0);
 });
 
@@ -263,9 +263,9 @@ test("the 1,000 limit counts exportable filters only", () => {
 test("action counts and filter narrow the view, never the export", () => {
   const app = runApp(makeStorage());
   const doc = app._document;
-  // Fresh page: the two starters drive the counts (examples included).
-  assert.match(doc.getElementById("actionCounts").textContent, /Skip the Inbox 1/);
-  assert.match(doc.getElementById("actionCounts").textContent, /Apply a label 2/);
+  // Fresh page: the five starters drive the counts (examples included).
+  assert.match(doc.getElementById("actionCounts").textContent, /Skip the Inbox 2/);
+  assert.match(doc.getElementById("actionCounts").textContent, /Apply a label 3/);
   const mk = (actions) => app.normalizeFilter({ from: "a@b.c", actions });
   app.setFilters([mk({ skip: true }), mk({ star: true }), mk({ skip: true, label: "X" })]);
   assert.match(doc.getElementById("actionCounts").textContent, /Skip the Inbox 2 · Star it 1 · Apply a label 1/);
@@ -330,15 +330,29 @@ test("cards show their position in the export order", () => {
   assert.match(cards[cards.length - 1].children[3].innerHTML, /order-num[^>]*>#2</);
 });
 
+test("loadExamples loads one example per template, none exportable", () => {
+  const app = runApp(makeStorage());
+  app._setConfirm(true);
+  app.clearAllFilters();
+  assert.equal(app.getFilters().length, 0);
+  app.loadExamples();
+  assert.equal(app.getFilters().length, 5);
+  // (join, not deepEqual: the app runs in a vm realm, so its arrays
+  // have a different prototype and strict deep-equality rejects them.)
+  assert.equal(app.getFilters().map((f) => f.name).join("|"), "Newsletters|Receipts|Social alerts|Large mail|VIP");
+  assert.equal(app.getFilters().every((f) => f.example), true);
+  assert.equal(app.exportableFilters().length, 0);
+});
+
 test("clear all asks first — even for only starters — and a cleared list stays empty after reload", () => {
   const storage = makeStorage();
   const app = runApp(storage);
   const doc = app._document;
-  assert.equal(app.getFilters().length, 2);
+  assert.equal(app.getFilters().length, 5);
   assert.equal(doc.getElementById("clearAllBtn").disabled, false);
   app._setConfirm(false);
   app.clearAllFilters();
-  assert.equal(app.getFilters().length, 2);
+  assert.equal(app.getFilters().length, 5);
   app._setConfirm(true);
   app.clearAllFilters();
   assert.equal(app.getFilters().length, 0);

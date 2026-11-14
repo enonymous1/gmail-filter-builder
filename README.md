@@ -23,7 +23,7 @@ Everything runs locally in your browser. There is no backend, no account, and no
 
 - Match fields (From, To, Subject, Has / Doesn't have words, Size, Has attachment) and action checkboxes (Skip the Inbox, Mark as read, Star it, Apply a label, Categorize as, Forward it to, Delete it, Never send to Spam, Always / Never mark as important)
 - Five one-tap templates: Newsletters, Receipts & invoices, Social notifications, Big attachments, VIP sender
-- Two starter examples (Newsletters, Receipts) show the shape of a filter — they are demo data only: importing your own filters replaces them, and they are never written to an export
+- Five starter examples — one for each template — show the shape of a filter; they are demo data only: importing your own filters replaces them, and they are never written to an export
 - Live Gmail-search preview for the filter you are building (`from:(…) subject:(…) larger:10M …`)
 - Filter list with drag-to-reorder, edit, duplicate, and delete
 - Numbered cards: each card shows its position in the export (1, 2, 3…), so the order you see is the order Gmail lists them in
@@ -159,7 +159,7 @@ Import creates new filters — it does not overwrite your existing ones. Try it 
 
 ### Import existing filters into the app
 
-Export your current filters from Gmail (same tab → **Export**), then in the app click **Import Filters**: drop the `.xml` file onto the zone, browse for it, or paste the XML. Imported filters are added to your list, where you can reorder, edit, and re-export them. Importing replaces the two starter examples if they are still there — they are demo data and never appear in an export. Two filters with the same match are kept as-is — the app does not de-duplicate yet.
+Export your current filters from Gmail (same tab → **Export**), then in the app click **Import Filters**: drop the `.xml` file onto the zone, browse for it, or paste the XML. Imported filters are added to your list, where you can reorder, edit, and re-export them. Importing replaces the starter examples if they are still there — they are demo data and never appear in an export. Two filters with the same match are kept as-is — the app does not de-duplicate yet.
 
 ## Architecture
 
@@ -167,7 +167,7 @@ The app is deliberately boring: one static file, no framework, no backend. The d
 
 ![Data flow: builder UI and Gmail export both read and write the same in-memory filter list; export serializes it to Gmail's Atom XML, import parses that XML back into filters. No server, no storage.](docs/assets/architecture.svg)
 
-- **Model:** an array of plain filter objects (`{ id, name, from, to, subject, has, hasNot, attach, sizeOp, sizeVal, sizeUnit, labels, excludeChats, example, actions }`). `example` marks the two starter filters, which show in the list but never export. No class, no store — that is the first thing the staff review would change.
+- **Model:** an array of plain filter objects (`{ id, name, from, to, subject, has, hasNot, attach, sizeOp, sizeVal, sizeUnit, labels, excludeChats, example, actions }`). `example` marks the starter filters, which show in the list but never export. No class, no store — that is the first thing the staff review would change.
 - **Export:** `buildXML()` serializes the model to Gmail's Atom-feed XML, with `escXml()` escaping every value. The property-name mapping is the load-bearing contract — see the table in the review.
 - **Import:** `parseFiltersFromXML()` runs the reverse mapping through `DOMParser`, keeping Gmail's property names as the source of truth and the app's old names only as a backwards-compatibility fallback.
 - **View:** `render()` rebuilds the filter list DOM from the model on every change. Simple and correct at small sizes; wasteful past a few hundred filters (no virtualization, no `DocumentFragment`).
