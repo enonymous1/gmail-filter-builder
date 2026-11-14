@@ -131,13 +131,20 @@
   .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
   .toolbar .count{font-size:14px;color:var(--muted);margin-right:auto}
   .toolbar .count b{color:var(--ink)}
-  .filter-select{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:9px;padding:7px 8px;font:inherit;font-size:13px;max-width:200px}
   .action-counts{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 2px 12px;min-height:28px}
   .action-counts:empty{display:none}
   .count-pill{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:4px 11px;font:inherit;font-size:12.5px;cursor:pointer}
   .count-pill:hover{border-color:var(--faint)}
   .count-pill[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
   .action-counts .showing{font-size:12.5px;color:var(--muted);margin-left:2px}
+  .actions-card{padding:14px 16px;margin:0 0 12px}
+  .actions-head h3{margin:0 0 2px;font-size:14px}
+  .actions-head p{margin:0 0 10px;color:var(--muted);font-size:13px;line-height:1.5}
+  .actions-card .action-counts{margin:0;min-height:0}
+  .search-row{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:11px;padding:0 12px;margin:0 0 14px}
+  .search-row svg{width:16px;height:16px;color:var(--faint);flex:none}
+  .search-row input{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font:inherit;font-size:14px;padding:10px 0;outline:none}
+  .search-row input::placeholder{color:var(--faint)}
   /* Two-column filter list on wide displays — cards are half the width,
      so the page stops being one tall stack with empty space beside it. */
   @media (min-width:900px){
@@ -325,9 +332,6 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="width:14px;height:14px"><path d="M12 5v14M5 12h14"/></svg>
           New filter
         </button>
-        <select id="actionFilter" class="filter-select" aria-label="Filter list by action">
-          <option value="">All actions</option>
-        </select>
         <button class="btn small" id="importBtn" type="button">Import Filters</button>
         <button class="btn small danger" id="clearAllBtn" type="button">Clear all</button>
         <button class="btn small" id="copyXmlBtn" type="button">Copy XML</button>
@@ -336,7 +340,14 @@
           Download .xml
         </button>
       </div>
-      <div class="action-counts" id="actionCounts" aria-live="polite"></div>
+      <div class="card actions-card" id="actionsCard">
+        <div class="actions-head"><h3>Filter by action</h3><p>Tap a pill to show only filters with that action — tap it again to show everything.</p></div>
+        <div class="action-counts" id="actionCounts" aria-live="polite"></div>
+      </div>
+      <div class="search-row" id="searchRow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="search" id="filterSearch" placeholder="Search filters — try a name, an address, or a label" aria-label="Search filters">
+      </div>
 
       <div id="filterList"></div>
 
@@ -888,9 +899,24 @@
   // View-only action filter: narrows the rendered cards, never the model
   // or the export. Counts describe the whole visible list (examples included).
   var actionFilter = "";
+  var searchTerm = "";
+  // The view is the action pill AND the search box together: a card
+  // shows only when it passes both. Neither touches the model or export.
+  function searchableText(f){
+    var parts = [f.name, f.from, f.to, f.subject, f.has, f.hasNot, searchQuery(f)];
+    if (f.labels) parts.push(f.labels.join(" "));
+    return parts.join(" ").toLowerCase();
+  }
   function visibleFilters(){
-    if (!actionFilter) return filters;
-    return filters.filter(function(f){ return !!f.actions[actionFilter]; });
+    return filters.filter(function(f){
+      if (actionFilter && !f.actions[actionFilter]) return false;
+      if (searchTerm){
+        var hay = searchableText(f);
+        var words = searchTerm.split(/\s+/);
+        for (var i = 0; i < words.length; i++){ if (hay.indexOf(words[i]) === -1) return false; }
+      }
+      return true;
+    });
   }
   function shortActionLabel(a){ return a.label.replace(/\s*\([^)]*\)\s*$/, ""); }
   function actionCounts(){
@@ -900,8 +926,8 @@
     return counts;
   }
   // The counts are pills, not text: tapping one filters the list to
-  // that action, tapping the active one again clears it. Same view-only
-  // filter the dropdown sets — both stay in sync through render().
+  // that action, tapping the active one again clears it. The pills are
+  // the only action filter now — the dropdown is gone.
   function renderActionCounts(){
     var box = $("actionCounts");
     box.innerHTML = "";
@@ -920,7 +946,7 @@
       });
       box.appendChild(p);
     });
-    if (actionFilter && filters.length){
+    if ((actionFilter || searchTerm) && filters.length){
       var s = document.createElement("span"); s.className = "showing";
       s.textContent = "showing " + visibleFilters().length + " of " + filters.length;
       box.appendChild(s);
@@ -933,7 +959,11 @@
     $("filterCount").innerHTML = "<b>" + exportableCount + "</b> / " + GMAIL_MAX_FILTERS + " filter" + (exportableCount === 1 ? "" : "s") + " in your export — drag to reorder";
     var visible = visibleFilters();
     renderActionCounts();
-    $("actionFilter").value = actionFilter;
+    // No filters, nothing to filter: hide the pills card and the search
+    // box and let the empty state own the space.
+    var has = !!filters.length;
+    $("actionsCard").style.display = has ? "" : "none";
+    $("searchRow").style.display = has ? "" : "none";
     $("clearAllBtn").disabled = !filters.length;
     if (!filters.length){
       var empty = document.createElement("div");
@@ -951,7 +981,16 @@
     } else if (!visible.length){
       var none = document.createElement("div");
       none.className = "empty-state";
-      none.innerHTML = "<h3>No filters with that action</h3><p>Try a different action, or switch the filter back to All actions.</p>";
+      var nh = document.createElement("h3");
+      var np = document.createElement("p");
+      if (searchTerm){
+        nh.textContent = "No filters match “" + searchTerm + "”";
+        np.textContent = "Try a different search, or clear it to see the whole list.";
+      } else {
+        nh.textContent = "No filters with that action";
+        np.textContent = "Try a different action, or tap the active pill again to show all.";
+      }
+      none.appendChild(nh); none.appendChild(np);
       list.appendChild(none);
     }
     visible.forEach(function(f){
@@ -1128,14 +1167,9 @@
   }
   $("downloadBtn").addEventListener("click", downloadXML);
   $("downloadBtn2").addEventListener("click", downloadXML);
-  // Action filter: options come from the same ACTIONS table as the checkrows.
-  ACTIONS.forEach(function(a){
-    var o = document.createElement("option");
-    o.value = a.key; o.textContent = a.label;
-    $("actionFilter").appendChild(o);
-  });
-  $("actionFilter").addEventListener("change", function(){
-    actionFilter = this.value;
+  // Search: narrows the cards as you type; composes with the action pill.
+  $("filterSearch").addEventListener("input", function(){
+    searchTerm = this.value.trim().toLowerCase();
     render();
   });
 
@@ -1174,7 +1208,7 @@
     }
     if (!ok) return;
     filters = [];
-    actionFilter = ""; $("actionFilter").value = "";
+    actionFilter = ""; searchTerm = ""; $("filterSearch").value = "";
     render();
     showToast("List cleared.");
   }
@@ -1325,6 +1359,7 @@
       importXMLText: importXMLText, exportableFilters: exportableFilters,
       setActionFilter: function(k){ actionFilter = k; render(); },
       getVisibleFilters: function(){ return visibleFilters(); },
+      setSearch: function(q){ searchTerm = String(q == null ? "" : q).trim().toLowerCase(); render(); },
       openImportDialog: openImportDialog, clearAllFilters: clearAllFilters,
       getImportDialog: function(){ return importDialog; },
       loadExamples: loadExamples,

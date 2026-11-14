@@ -305,12 +305,37 @@ test("action count pills set and clear the view filter", () => {
   assert.equal(star.getAttribute("aria-pressed"), "false");
   star._listeners.click[0]();
   assert.equal(app.getVisibleFilters().length, 3);
-  assert.equal(doc.getElementById("actionFilter").value, "star");
   assert.equal(findPill("Star it").getAttribute("aria-pressed"), "true");
   // Clicking the active pill again clears the filter.
   findPill("Star it")._listeners.click[0]();
   assert.equal(app.getVisibleFilters().length, 5);
-  assert.equal(doc.getElementById("actionFilter").value, "");
+});
+
+test("search narrows the cards by name, address, or label", () => {
+  const app = runApp(makeStorage());
+  const mk = (o) => app.normalizeFilter(o);
+  app.setFilters([
+    mk({ name: "Amazon orders", from: "orders@amazon.com", actions: { label: "Shopping" } }),
+    mk({ name: "Bank alerts", from: "alerts@bank.com", actions: { star: true } }),
+    mk({ name: "Newsletters", has: "unsubscribe", actions: { skip: true } }),
+  ]);
+  app.setSearch("amazon");
+  assert.equal(app.getVisibleFilters().length, 1);
+  assert.equal(app.getVisibleFilters()[0].name, "Amazon orders");
+  app.setSearch("BANK"); // case-insensitive
+  assert.equal(app.getVisibleFilters().length, 1);
+  app.setSearch("shopping"); // label match
+  assert.equal(app.getVisibleFilters().length, 1);
+  app.setSearch("amazon bank"); // every word must match
+  assert.equal(app.getVisibleFilters().length, 0);
+  app.setSearch("");
+  assert.equal(app.getVisibleFilters().length, 3);
+  // Search composes with the action pill.
+  app.setSearch("alerts");
+  app.setActionFilter("star");
+  assert.equal(app.getVisibleFilters().length, 1);
+  app.setActionFilter("trash");
+  assert.equal(app.getVisibleFilters().length, 0);
 });
 
 test("modal: closing with unsaved changes asks first; clean close needs no prompt", () => {
