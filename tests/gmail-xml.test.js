@@ -30,10 +30,12 @@ class El {
     this.innerHTML = "";
     this.open = false;
     this.files = null;
+    this.parentNode = null;
     this.classList = { add() {}, remove() {}, toggle() {}, contains() { return false; } };
     this._listeners = {};
   }
-  appendChild(c) { this.children.push(c); return c; }
+  appendChild(c) { const i = this.children.indexOf(c); if (i >= 0) this.children.splice(i, 1); this.children.push(c); c.parentNode = this; return c; }
+  removeChild(c) { const i = this.children.indexOf(c); if (i >= 0) this.children.splice(i, 1); if (c.parentNode === this) c.parentNode = null; return c; }
   addEventListener(t, fn) { (this._listeners[t] ||= []).push(fn); }
   setAttribute(k, v) { this._attrs[k] = v; }
   getAttribute(k) { return this._attrs[k] ?? null; }
@@ -374,18 +376,102 @@ test("import modal: opens, imports, and closes on success", () => {
 test("cards show their position in the export order", () => {
   const app = runApp(makeStorage());
   const doc = app._document;
-  // Fresh page: starters are #1 and #2, in the bottom-right footer.
-  // (The stub DOM keeps every card render() ever appended, so read the
-  // first render's cards; foot is the card's 4th child.)
+  // Fresh page: starters are #1 and #2, in the bottom-right footer
+  // (foot is the card's 4th child).
   const list = doc.getElementById("filterList");
   assert.match(list.children[0].children[3].innerHTML, /order-num[^>]*>#1</);
   assert.match(list.children[1].children[3].innerHTML, /order-num[^>]*>#2</);
-  // Under a filter, the visible card keeps its full-list position.
+  // Under a filter, the visible card keeps its full-list position — the
+  // hidden cards are still there, only display:none.
   const mk = (actions) => app.normalizeFilter({ from: "a@b.c", actions });
   app.setFilters([mk({ skip: true }), mk({ star: true }), mk({ trash: true })]);
   app.setActionFilter("star");
-  const cards = list.children;
-  assert.match(cards[cards.length - 1].children[3].innerHTML, /order-num[^>]*>#2</);
+  const visible = list.children.filter((c) => c.style.display !== "none");
+  assert.equal(visible.length, 1);
+  assert.match(visible[0].children[3].innerHTML, /order-num[^>]*>#2</);
+});
+
+test("pill click and search reuse the card elements instead of rebuilding", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const mk = (o) => app.normalizeFilter(o);
+  app.setFilters([
+    mk({ name: "Amazon orders", from: "orders@amazon.com", actions: { label: "Shopping" } }),
+    mk({ name: "Bank alerts", from: "alerts@bank.com", actions: { star: true } }),
+    mk({ name: "Newsletters", has: "unsubscribe", actions: { skip: true } }),
+  ]);
+  const list = doc.getElementById("filterList");
+  const before = list.children.slice();
+  assert.equal(before.length, 3);
+  // Pill click: same elements, same order, only visibility changes.
+  app.setActionFilter("star");
+  assert.equal(list.children.length, 3);
+  before.forEach((c, i) => assert.equal(list.children[i], c));
+  assert.equal(list.children.filter((c) => c.style.display !== "none").length, 1);
+  assert.equal(list.children[1].style.display, "");
+  // Search: same again.
+  app.setActionFilter("");
+  app.setSearch("amazon");
+  before.forEach((c, i) => assert.equal(list.children[i], c));
+  assert.equal(list.children.filter((c) => c.style.display !== "none").length, 1);
+  assert.equal(list.children[0].style.display, "");
+  // Clearing both shows everything again — still the same elements.
+  app.setSearch("");
+  assert.equal(list.children.filter((c) => c.style.display !== "none").length, 3);
+  before.forEach((c, i) => assert.equal(list.children[i], c));
+});
+
+test("adding and removing a filter keeps the other cards and renumbers", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const mk = (o) => app.normalizeFilter(o);
+  const a = mk({ name: "A", from: "a@example.com", actions: { star: true } });
+  const b = mk({ name: "B", from: "b@example.com", actions: { skip: true } });
+  app.setFilters([a, b]);
+  const list = doc.getElementById("filterList");
+  const cardA = list.children[0], cardB = list.children[1];
+  assert.match(cardB.children[3].innerHTML, /order-num[^>]*>#2</);
+  // Add a third: the first two cards are the same elements.
+  const c = mk({ name: "C", from: "c@example.com", actions: { trash: true } });
+  app.setFilters([a, b, c]);
+  assert.equal(list.children.length, 3);
+  assert.equal(list.children[0], cardA);
+  assert.equal(list.children[1], cardB);
+  const cardC = list.children[2];
+  assert.match(cardC.children[3].innerHTML, /order-num[^>]*>#3</);
+  // Remove the middle one: the survivors keep their elements, C renumbers to #2.
+  app.setFilters([a, c]);
+  assert.equal(list.children.length, 2);
+  assert.equal(list.children[0], cardA);
+  assert.equal(list.children[1], cardC);
+  assert.match(list.children[1].children[3].innerHTML, /order-num[^>]*>#2</);
+});
+
+test("editing a filter refreshes its card in place", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const f = app.normalizeFilter({ name: "Old name", from: "a@example.com", actions: { star: true } });
+  app.setFilters([f]);
+  const list = doc.getElementById("filterList");
+  const card = list.children[0];
+  assert.equal(card._els.title.textContent, "Old name");
+  // Edit through the dialog: rename it (the from address stays loaded).
+  app.openEditFilter(f);
+  // A label-less filter must load with the label/forward/category boxes
+  // unticked — normalizeFilter() fills those with "", which used to read
+  // as "on" and made Save fail validation on the empty text.
+  assert.equal(doc.getElementById("a_label").checked, false);
+  assert.equal(doc.getElementById("a_forward").checked, false);
+  assert.equal(doc.getElementById("a_category").checked, false);
+  assert.equal(doc.getElementById("a_star").checked, true);
+  doc.getElementById("fName").value = "New name";
+  doc.getElementById("addBtn")._listeners.click[0]();
+  assert.equal(app.getFilters().length, 1);
+  assert.equal(app.getFilters()[0].name, "New name");
+  // Same card element, refreshed content.
+  assert.equal(list.children.length, 1);
+  assert.equal(list.children[0], card);
+  assert.equal(card._els.title.textContent, "New name");
 });
 
 test("loadExamples loads one example per template, none exportable", () => {

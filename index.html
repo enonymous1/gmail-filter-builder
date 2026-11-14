@@ -750,7 +750,11 @@
     $("fAttach").checked = !!d.attach;
     $("fSizeOp").value = d.sizeOp || ""; $("fSizeVal").value = d.sizeVal || ""; $("fSizeUnit").value = d.sizeUnit || "s_smb";
     ACTIONS.forEach(function(a){
-      var on = d.actions && (d.actions[a.key] !== undefined && d.actions[a.key] !== false);
+      // normalizeFilter() always fills the string actions (label / forward /
+      // category) with "", so "on" must mean a non-empty value — "" is off,
+      // or every label-less filter loads with those boxes ticked and Save
+      // fails validation on the empty text.
+      var on = d.actions && d.actions[a.key] !== undefined && d.actions[a.key] !== false && d.actions[a.key] !== "";
       var cb = $("a_" + a.key); cb.checked = !!on;
       $("row_" + a.key).classList.toggle("on", !!on);
       if (a.key === "label") $("aLabelText").value = (d.actions && d.actions.label) || "";
@@ -942,7 +946,7 @@
       p.title = active ? "Click to show all actions" : "Click to show only filters with this action";
       p.addEventListener("click", function(){
         actionFilter = (actionFilter === a.key) ? "" : a.key;
-        render();
+        applyView();
       });
       box.appendChild(p);
     });
@@ -952,123 +956,210 @@
       box.appendChild(s);
     }
   }
+  // Cards are persistent elements, keyed by filter id: render() reconciles
+  // them against the model (create / refresh / remove / reorder) and
+  // applyView() only toggles which ones show. A pill click or a keystroke
+  // in the search box therefore never destroys a card — the list used to
+  // be rebuilt from scratch on every view change, which is the jump the
+  // owner saw with 1,000 filters.
+  var cardEls = {}; // filter id -> its card element
+  var emptyState = null, noMatchState = null; // persistent empty-state divs
+  var noMatchH = null, noMatchP = null; // the no-match state's heading + text
+
+  function filterById(id){
+    for (var i = 0; i < filters.length; i++) if (filters[i].id === id) return filters[i];
+    return null;
+  }
+
+  function clearChips(box){
+    // Keep the first child (the "Matches"/"Then" label), drop the chips.
+    while (box.children.length > 1) box.removeChild(box.children[box.children.length - 1]);
+  }
+
+  function fillFilterCard(card, f, order){
+    // Refresh a card's content from the live filter. The order number is
+    // cheap and always refreshed; the rest is rebuilt only when the
+    // filter's content actually changed (an edit save replaces the object).
+    var orderHtml = '<span class="order-num" title="Position in your export">#' + order + '</span>';
+    if (card._els.order.innerHTML !== orderHtml) card._els.order.innerHTML = orderHtml;
+    var sig = JSON.stringify(f);
+    if (card._sig === sig) return;
+    card._sig = sig;
+    card._els.title.textContent = f.name;
+    if (f.example){
+      var badge = document.createElement("span"); badge.className = "badge"; badge.textContent = "Example";
+      card._els.title.appendChild(badge); card._els.badge = badge;
+    } else {
+      card._els.badge = null;
+    }
+    card._els.search.textContent = searchQuery(f);
+    clearChips(card._els.matches);
+    criteriaChips(f).forEach(function(t){ var s = document.createElement("span"); s.className = "chip crit"; s.textContent = t; card._els.matches.appendChild(s); });
+    clearChips(card._els.actions);
+    actionChips(f).forEach(function(t){ var s = document.createElement("span"); s.className = "chip act"; s.textContent = t; card._els.actions.appendChild(s); });
+  }
+
+  function buildFilterCard(f){
+    var list = $("filterList");
+    // The id never changes (an edit save keeps it on the new object), so
+    // the handlers resolve the live filter by id instead of closing over
+    // the object — which would go stale after an edit replaces it.
+    var id = f.id;
+    var card = document.createElement("article");
+    card.className = "filter-card"; card.draggable = true; card.dataset.id = id;
+    var top = document.createElement("div"); top.className = "fc-top";
+    var gripSpan = document.createElement("span"); gripSpan.className = "drag-handle"; gripSpan.title = "Drag to reorder"; gripSpan.innerHTML = grip;
+    var titleWrap = document.createElement("div"); titleWrap.className = "fc-title";
+    var h3 = document.createElement("h3");
+    var searchEl = document.createElement("div"); searchEl.className = "fc-search";
+    titleWrap.appendChild(h3); titleWrap.appendChild(searchEl);
+    var btns = document.createElement("div"); btns.className = "fc-btns";
+    var editBtn = document.createElement("button"); editBtn.type = "button"; editBtn.className = "icon-btn"; editBtn.setAttribute("data-act", "edit"); editBtn.title = "Edit"; editBtn.setAttribute("aria-label", "Edit filter"); editBtn.innerHTML = ICON_EDIT;
+    var dupBtn = document.createElement("button"); dupBtn.type = "button"; dupBtn.className = "icon-btn"; dupBtn.setAttribute("data-act", "dup"); dupBtn.title = "Duplicate"; dupBtn.setAttribute("aria-label", "Duplicate filter"); dupBtn.innerHTML = ICON_COPY;
+    var delBtn = document.createElement("button"); delBtn.type = "button"; delBtn.className = "icon-btn danger"; delBtn.setAttribute("data-act", "del"); delBtn.title = "Delete"; delBtn.setAttribute("aria-label", "Delete filter"); delBtn.innerHTML = ICON_TRASH;
+    btns.appendChild(editBtn); btns.appendChild(dupBtn); btns.appendChild(delBtn);
+    top.appendChild(gripSpan); top.appendChild(titleWrap); top.appendChild(btns);
+    card.appendChild(top);
+    var cc = document.createElement("div"); cc.className = "chips";
+    var ccLabel = document.createElement("span"); ccLabel.className = "clabel"; ccLabel.textContent = "Matches";
+    cc.appendChild(ccLabel); card.appendChild(cc);
+    var ac = document.createElement("div"); ac.className = "chips";
+    var acLabel = document.createElement("span"); acLabel.className = "clabel"; acLabel.textContent = "Then";
+    ac.appendChild(acLabel); card.appendChild(ac);
+    // Position in the full list = export order, anchored bottom-right
+    // so the drag handle stays alone at the top left.
+    var foot = document.createElement("div"); foot.className = "fc-foot";
+    card.appendChild(foot);
+    card._els = { title: h3, badge: null, search: searchEl, matches: cc, actions: ac, order: foot };
+
+    editBtn.addEventListener("click", function (e) {
+      var live = filterById(id);
+      if (live) openEditFilter(live, e.currentTarget);
+    });
+    dupBtn.addEventListener("click", function(){
+      var live = filterById(id);
+      if (!live) return;
+      var copy = JSON.parse(JSON.stringify(live)); copy.id = uid++; copy.name = live.name + " (copy)"; copy.example = false;
+      filters.splice(filters.indexOf(live) + 1, 0, copy); render(); showToast("Duplicated.");
+    });
+    delBtn.addEventListener("click", function(){
+      filters = filters.filter(function(x){ return x.id !== id; });
+      if (editingId === id) clearBuilder();
+      render(); showToast("Filter removed.");
+    });
+
+    card.addEventListener("dragstart", function(e){
+      dragId = id; card.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      try { e.dataTransfer.setData("text/plain", "filter:" + id); } catch(err){}
+    });
+    card.addEventListener("dragend", function(){
+      card.classList.remove("dragging");
+      list.querySelectorAll(".filter-card").forEach(function(c){ c.classList.remove("drop-target"); });
+    });
+    card.addEventListener("dragover", function(e){
+      if (dragId === null || dragId === id) return;
+      e.preventDefault(); card.classList.add("drop-target");
+    });
+    card.addEventListener("dragleave", function(){ card.classList.remove("drop-target"); });
+    card.addEventListener("drop", function(e){
+      e.preventDefault(); card.classList.remove("drop-target");
+      if (dragId === null || dragId === id) return;
+      var fromIdx = -1, toIdx = -1;
+      filters.forEach(function(x, i){ if (x.id === dragId) fromIdx = i; if (x.id === id) toIdx = i; });
+      if (fromIdx < 0 || toIdx < 0) return;
+      var moved = filters.splice(fromIdx, 1)[0];
+      filters.splice(toIdx, 0, moved);
+      dragId = null; render(); showToast("Order updated — that’s the order Gmail will list them in.");
+    });
+    return card;
+  }
+
+  function buildEmptyStates(){
+    emptyState = document.createElement("div");
+    emptyState.className = "empty-state";
+    emptyState.innerHTML = "<h3>No filters yet</h3><p>Build one with New filter, load a template above, or import an XML file you exported from Gmail.</p>";
+    var b = document.createElement("button");
+    b.className = "btn primary"; b.type = "button"; b.textContent = "Load examples";
+    b.addEventListener("click", function () {
+      loadExamples();
+      render();
+      showToast("Loaded the starter examples — they’re demo data and never appear in an export.");
+    });
+    emptyState.appendChild(b);
+    noMatchState = document.createElement("div");
+    noMatchState.className = "empty-state";
+    noMatchH = document.createElement("h3");
+    noMatchP = document.createElement("p");
+    noMatchState.appendChild(noMatchH); noMatchState.appendChild(noMatchP);
+  }
+
+  function applyView(){
+    // View-only: pills, which cards show, and the empty states. Never
+    // creates or destroys a card, so a pill click or a keystroke can't
+    // move anything on screen.
+    if (!emptyState) buildEmptyStates();
+    renderActionCounts();
+    var visibleIds = {};
+    visibleFilters().forEach(function(f){ visibleIds[f.id] = true; });
+    var anyVisible = false;
+    filters.forEach(function(f){
+      var card = cardEls[f.id];
+      if (!card) return;
+      var show = !!visibleIds[f.id];
+      card.style.display = show ? "" : "none";
+      if (show) anyVisible = true;
+    });
+    var list = $("filterList");
+    if (!filters.length){
+      if (emptyState.parentNode !== list) list.appendChild(emptyState);
+      if (noMatchState.parentNode === list) list.removeChild(noMatchState);
+    } else if (!anyVisible){
+      if (searchTerm){
+        noMatchH.textContent = "No filters match “" + searchTerm + "”";
+        noMatchP.textContent = "Try a different search, or clear it to see the whole list.";
+      } else {
+        noMatchH.textContent = "No filters with that action";
+        noMatchP.textContent = "Try a different action, or tap the active pill again to show all.";
+      }
+      if (noMatchState.parentNode !== list) list.appendChild(noMatchState);
+      if (emptyState.parentNode === list) list.removeChild(emptyState);
+    } else {
+      if (emptyState.parentNode === list) list.removeChild(emptyState);
+      if (noMatchState.parentNode === list) list.removeChild(noMatchState);
+    }
+  }
+
   function render(){
     var list = $("filterList");
-    list.innerHTML = "";
     var exportableCount = exportableFilters().length;
     $("filterCount").innerHTML = "<b>" + exportableCount + "</b> / " + GMAIL_MAX_FILTERS + " filter" + (exportableCount === 1 ? "" : "s") + " in your export — drag to reorder";
-    var visible = visibleFilters();
-    renderActionCounts();
     // No filters, nothing to filter: hide the pills card and the search
     // box and let the empty state own the space.
     var has = !!filters.length;
     $("actionsCard").style.display = has ? "" : "none";
     $("searchRow").style.display = has ? "" : "none";
     $("clearAllBtn").disabled = !filters.length;
-    if (!filters.length){
-      var empty = document.createElement("div");
-      empty.className = "empty-state";
-      empty.innerHTML = "<h3>No filters yet</h3><p>Build one with New filter, load a template above, or import an XML file you exported from Gmail.</p>";
-      var b = document.createElement("button");
-      b.className = "btn primary"; b.type = "button"; b.textContent = "Load examples";
-      b.addEventListener("click", function () {
-        loadExamples();
-        render();
-        showToast("Loaded the starter examples — they’re demo data and never appear in an export.");
-      });
-      empty.appendChild(b);
-      list.appendChild(empty);
-    } else if (!visible.length){
-      var none = document.createElement("div");
-      none.className = "empty-state";
-      var nh = document.createElement("h3");
-      var np = document.createElement("p");
-      if (searchTerm){
-        nh.textContent = "No filters match “" + searchTerm + "”";
-        np.textContent = "Try a different search, or clear it to see the whole list.";
-      } else {
-        nh.textContent = "No filters with that action";
-        np.textContent = "Try a different action, or tap the active pill again to show all.";
-      }
-      none.appendChild(nh); none.appendChild(np);
-      list.appendChild(none);
-    }
-    visible.forEach(function(f){
-      var card = document.createElement("article");
-      card.className = "filter-card"; card.draggable = true; card.dataset.id = f.id;
-      var top = document.createElement("div"); top.className = "fc-top";
-      top.innerHTML = '<span class="drag-handle" title="Drag to reorder">' + grip + '</span>' +
-        '<div class="fc-title"><h3></h3><div class="fc-search"></div></div>' +
-        '<div class="fc-btns">' +
-          '<button class="icon-btn" data-act="edit" title="Edit" aria-label="Edit filter">' + ICON_EDIT + '</button>' +
-          '<button class="icon-btn" data-act="dup" title="Duplicate" aria-label="Duplicate filter">' + ICON_COPY + '</button>' +
-          '<button class="icon-btn danger" data-act="del" title="Delete" aria-label="Delete filter">' + ICON_TRASH + '</button>' +
-        '</div>';
-      top.querySelector("h3").textContent = f.name;
-      if (f.example){
-        var badge = document.createElement("span"); badge.className = "badge"; badge.textContent = "Example";
-        top.querySelector("h3").appendChild(badge);
-      }
-      top.querySelector(".fc-search").textContent = searchQuery(f);
-      card.appendChild(top);
-
-      var cc = document.createElement("div"); cc.className = "chips";
-      cc.innerHTML = '<span class="clabel">Matches</span>';
-      criteriaChips(f).forEach(function(t){ var s = document.createElement("span"); s.className = "chip crit"; s.textContent = t; cc.appendChild(s); });
-      card.appendChild(cc);
-      var ac = document.createElement("div"); ac.className = "chips";
-      ac.innerHTML = '<span class="clabel">Then</span>';
-      actionChips(f).forEach(function(t){ var s = document.createElement("span"); s.className = "chip act"; s.textContent = t; ac.appendChild(s); });
-      card.appendChild(ac);
-
-      // Position in the full list = export order, anchored bottom-right
-      // so the drag handle stays alone at the top left.
-      var order = filters.indexOf(f) + 1;
-      var foot = document.createElement("div"); foot.className = "fc-foot";
-      foot.innerHTML = '<span class="order-num" title="Position in your export">#' + order + '</span>';
-      card.appendChild(foot);
-
-      top.querySelector('[data-act="edit"]').addEventListener("click", function (e) {
-        openEditFilter(f, e.currentTarget);
-      });
-      top.querySelector('[data-act="dup"]').addEventListener("click", function(){
-        var copy = JSON.parse(JSON.stringify(f)); copy.id = uid++; copy.name = f.name + " (copy)"; copy.example = false;
-        filters.splice(filters.indexOf(f) + 1, 0, copy); render(); showToast("Duplicated.");
-      });
-      top.querySelector('[data-act="del"]').addEventListener("click", function(){
-        filters = filters.filter(function(x){ return x.id !== f.id; });
-        if (editingId === f.id) clearBuilder();
-        render(); showToast("Filter removed.");
-      });
-
-      card.addEventListener("dragstart", function(e){
-        dragId = f.id; card.classList.add("dragging");
-        e.dataTransfer.effectAllowed = "move";
-        try { e.dataTransfer.setData("text/plain", "filter:" + f.id); } catch(err){}
-      });
-      card.addEventListener("dragend", function(){
-        card.classList.remove("dragging");
-        list.querySelectorAll(".filter-card").forEach(function(c){ c.classList.remove("drop-target"); });
-      });
-      card.addEventListener("dragover", function(e){
-        if (dragId === null || dragId === f.id) return;
-        e.preventDefault(); card.classList.add("drop-target");
-      });
-      card.addEventListener("dragleave", function(){ card.classList.remove("drop-target"); });
-      card.addEventListener("drop", function(e){
-        e.preventDefault(); card.classList.remove("drop-target");
-        if (dragId === null || dragId === f.id) return;
-        var fromIdx = -1, toIdx = -1;
-        filters.forEach(function(x, i){ if (x.id === dragId) fromIdx = i; if (x.id === f.id) toIdx = i; });
-        if (fromIdx < 0 || toIdx < 0) return;
-        var moved = filters.splice(fromIdx, 1)[0];
-        filters.splice(toIdx, 0, moved);
-        dragId = null; render(); showToast("Order updated — that’s the order Gmail will list them in.");
-      });
+    // Reconcile the persistent cards with the model: create the new,
+    // refresh the changed, drop the gone, and re-order by re-appending
+    // (appendChild moves an existing node). Nothing is rebuilt wholesale.
+    var seen = {};
+    filters.forEach(function(f, i){
+      var card = cardEls[f.id];
+      if (!card){ card = buildFilterCard(f); cardEls[f.id] = card; }
+      fillFilterCard(card, f, i + 1);
       list.appendChild(card);
+      seen[f.id] = true;
+    });
+    Object.keys(cardEls).forEach(function(id){
+      if (!seen[id]){
+        if (cardEls[id].parentNode === list) list.removeChild(cardEls[id]);
+        delete cardEls[id];
+      }
     });
     $("xmlPreview").textContent = buildXML();
     saveFilters(); // autosave the working copy on every change
+    applyView();
   }
 
   /* ---------- XML export (Gmail format) ---------- */
@@ -1170,7 +1261,7 @@
   // Search: narrows the cards as you type; composes with the action pill.
   $("filterSearch").addEventListener("input", function(){
     searchTerm = this.value.trim().toLowerCase();
-    render();
+    applyView();
   });
 
   $("copyXmlBtn").addEventListener("click", copyXML);
@@ -1357,9 +1448,9 @@
       openEditFilter: openEditFilter, requestCloseDialog: requestCloseDialog,
       isDialogDirty: isDialogDirty, getDialog: function () { return dialog; },
       importXMLText: importXMLText, exportableFilters: exportableFilters,
-      setActionFilter: function(k){ actionFilter = k; render(); },
+      setActionFilter: function(k){ actionFilter = k; applyView(); },
       getVisibleFilters: function(){ return visibleFilters(); },
-      setSearch: function(q){ searchTerm = String(q == null ? "" : q).trim().toLowerCase(); render(); },
+      setSearch: function(q){ searchTerm = String(q == null ? "" : q).trim().toLowerCase(); applyView(); },
       openImportDialog: openImportDialog, clearAllFilters: clearAllFilters,
       getImportDialog: function(){ return importDialog; },
       loadExamples: loadExamples,
