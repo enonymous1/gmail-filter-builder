@@ -1,0 +1,905 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<link rel="icon" href="data:," />
+<title>Gmail Filter Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f4ef; --surface:#ffffff; --surface2:#fbf9f5; --ink:#191c1f; --muted:#6d7278; --faint:#9aa0a6;
+    --line:#e5dfd3; --line2:#ece8df;
+    --red:#d93025; --red-soft:#fce8e6; --blue:#1a73e8; --blue-soft:#e8f0fe;
+    --green:#188038; --green-soft:#e6f4ea; --yellow:#b06000; --yellow-soft:#fef7e0;
+    --chip:#f1eee6; --input:#ffffff;
+    --shadow:0 1px 2px rgba(25,28,31,.05),0 8px 28px rgba(25,28,31,.06);
+    --radius:16px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#121416; --surface:#1b1e21; --surface2:#202427; --ink:#f2f0eb; --muted:#a7adb3; --faint:#7c838a;
+      --line:#30353a; --line2:#2a2f34;
+      --red:#ff6f66; --red-soft:#3a2321; --blue:#8ab4f8; --blue-soft:#22334d;
+      --green:#81c995; --green-soft:#1f3325; --yellow:#fdd663; --yellow-soft:#3a3120;
+      --chip:#262a2e; --input:#15181a;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.25);
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"DM Sans",system-ui,-apple-system,Segoe UI,sans-serif;-webkit-font-smoothing:antialiased}
+  button,[role="button"],select,summary,input:not([type="checkbox"]){min-height:40px}
+  button{font:inherit;cursor:pointer}
+  a{color:var(--blue)}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 64px}
+  /* ---------- Hero ---------- */
+  .hero{display:grid;grid-template-columns:1.5fr .9fr;gap:22px;align-items:stretch;margin-bottom:22px}
+  .hero-main{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:28px 30px;box-shadow:var(--shadow)}
+  .hero-main h1{font-size:clamp(28px,4.4vw,44px);line-height:1.04;letter-spacing:-.03em;margin:0 0 12px;font-weight:800;max-width:14ch}
+  .hero-main h1 em{font-style:normal;color:var(--red)}
+  .hero-main p{margin:0;color:var(--muted);font-size:16.5px;line-height:1.6;max-width:56ch}
+  .hero-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+  .btn{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:10px 18px;font-weight:700;font-size:14.5px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none;transition:transform .12s ease,border-color .12s ease}
+  .btn:hover{border-color:var(--faint)}
+  .btn:active{transform:scale(.98)}
+  .btn.primary{background:var(--red);border-color:var(--red);color:#fff}
+  @media (prefers-color-scheme: dark){.btn.primary{color:#1b1e21}}
+  .btn.blue{background:var(--blue);border-color:var(--blue);color:#fff}
+  @media (prefers-color-scheme: dark){.btn.blue{color:#121416}}
+  .btn.ghost{background:transparent}
+  .btn.small{padding:7px 13px;font-size:13px;min-height:36px}
+  .btn svg{width:16px;height:16px;flex:none}
+  .hero-side{background:var(--ink);color:var(--bg);border-radius:20px;padding:24px 26px;display:flex;flex-direction:column;gap:14px}
+  .hero-side h2{margin:0;font-size:15px;letter-spacing:.02em}
+  .hero-side ol{margin:0;padding-left:20px;display:grid;gap:10px;font-size:14.5px;line-height:1.55;color:inherit;opacity:.92}
+  .hero-side ol b{opacity:1}
+  .hero-side .mini{font-size:12.5px;opacity:.65;line-height:1.5;margin-top:auto}
+  /* ---------- Templates ---------- */
+  .section-head{display:flex;align-items:baseline;justify-content:space-between;gap:14px;margin:26px 2px 12px;flex-wrap:wrap}
+  .section-head h2{margin:0;font-size:19px;letter-spacing:-.01em}
+  .section-head p{margin:0;color:var(--muted);font-size:13.5px}
+  .templates{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+  .tpl{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;text-align:left;display:flex;flex-direction:column;gap:6px;min-height:118px;transition:border-color .12s ease,transform .12s ease}
+  .tpl:hover{border-color:var(--red);transform:translateY(-1px)}
+  .tpl .ic{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;background:var(--red-soft);color:var(--red)}
+  .tpl .ic.blue{background:var(--blue-soft);color:var(--blue)} .tpl .ic.green{background:var(--green-soft);color:var(--green)} .tpl .ic.yellow{background:var(--yellow-soft);color:var(--yellow)}
+  .tpl .ic svg{width:17px;height:17px}
+  .tpl b{font-size:14px;line-height:1.3}
+  .tpl span{font-size:12.5px;color:var(--muted);line-height:1.45}
+  /* ---------- Layout ---------- */
+  .layout{display:grid;grid-template-columns:470px 1fr;gap:20px;align-items:start;margin-top:6px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  /* ---------- Builder ---------- */
+  .builder{padding:22px;position:sticky;top:16px}
+  .builder.drag-over{outline:2px dashed var(--red);outline-offset:-8px}
+  .builder h2{margin:0 0 4px;font-size:19px}
+  .builder .sub{color:var(--muted);font-size:13.5px;line-height:1.55;margin:0 0 16px}
+  .palette{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:18px}
+  .palette-label{width:100%;font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:1px}
+  .block{border:1.5px dashed color-mix(in srgb,var(--faint) 55%,transparent);background:var(--surface2);color:var(--ink);border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600;cursor:grab;display:inline-flex;gap:6px;align-items:center;min-height:36px}
+  .block:active{cursor:grabbing}
+  .block svg{width:13px;height:13px;color:var(--faint)}
+  .block.action{border-style:solid;border-color:var(--line);background:var(--blue-soft);color:var(--ink)}
+  fieldset{border:0;padding:0;margin:0 0 18px}
+  legend{font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);padding:0;margin-bottom:10px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .field{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+  .field label{font-size:13px;font-weight:700}
+  .field label .opt{font-weight:500;color:var(--faint);font-size:12px}
+  .field input[type=text],.field input[type=email],.field input[type=number],.field select,.field textarea{
+    width:100%;border:1px solid var(--line);background:var(--input);color:var(--ink);border-radius:10px;padding:9px 12px;font:inherit;font-size:14.5px;outline:none}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
+  .field.flash input{border-color:var(--red);box-shadow:0 0 0 3px var(--red-soft)}
+  .field .hint{font-size:12px;color:var(--faint);line-height:1.45}
+  .size-row{display:grid;grid-template-columns:1.15fr .8fr .8fr;gap:8px}
+  .checkrow{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--line2);border-radius:11px;margin-bottom:8px;cursor:pointer;background:var(--surface)}
+  .checkrow:hover{border-color:var(--line)}
+  .checkrow input[type=checkbox]{width:19px;height:19px;margin:1px 0 0;accent-color:var(--red);flex:none;cursor:pointer}
+  .checkrow .t b{display:block;font-size:14px;line-height:1.3}
+  .checkrow .t span{display:block;font-size:12.5px;color:var(--muted);line-height:1.45;margin-top:1px}
+  .checkrow .extra{margin-top:8px;display:none;width:100%}
+  .checkrow.on .extra{display:block}
+  .checkrow .extra input{width:100%;border:1px solid var(--line);background:var(--input);color:var(--ink);border-radius:9px;padding:8px 11px;font:inherit;font-size:14px}
+  .checkrow select{width:100%;border:1px solid var(--line);background:var(--input);color:var(--ink);border-radius:9px;padding:8px 11px;font:inherit;font-size:14px;margin-top:8px;display:none}
+  .checkrow.on select{display:block}
+  .preview{background:var(--surface2);border:1px solid var(--line2);border-radius:12px;padding:13px 14px;margin-bottom:16px}
+  .preview .plabel{font-size:11.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+  .preview code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:13px;line-height:1.6;word-break:break-word;display:block}
+  .preview .empty{color:var(--faint);font-size:13.5px}
+  .builder-actions{display:flex;gap:9px;flex-wrap:wrap}
+  .builder-actions .btn{flex:1;justify-content:center}
+  .error{display:none;background:var(--red-soft);color:var(--red);border-radius:10px;padding:10px 13px;font-size:13.5px;font-weight:600;line-height:1.5;margin-bottom:13px}
+  .error.show{display:block}
+  /* ---------- Filters column ---------- */
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+  .toolbar .count{font-size:14px;color:var(--muted);margin-right:auto}
+  .toolbar .count b{color:var(--ink)}
+  .filter-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 18px 14px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .filter-card.dragging{opacity:.45}
+  .filter-card.drop-target{border-color:var(--red);box-shadow:0 0 0 2px var(--red-soft)}
+  .fc-top{display:flex;gap:10px;align-items:flex-start}
+  .drag-handle{cursor:grab;color:var(--faint);padding:6px 2px;flex:none;border-radius:6px}
+  .drag-handle:active{cursor:grabbing}
+  .drag-handle svg{width:16px;height:16px;display:block}
+  .fc-title{flex:1;min-width:0}
+  .fc-title h3{margin:0;font-size:16px;line-height:1.3;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .badge{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;background:var(--yellow-soft);color:var(--yellow);border-radius:999px;padding:2px 8px}
+  .fc-search{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;color:var(--muted);word-break:break-word;margin-top:4px;line-height:1.55}
+  .fc-btns{display:flex;gap:4px;flex:none}
+  .icon-btn{width:38px;height:38px;border-radius:9px;border:1px solid transparent;background:transparent;color:var(--muted);display:grid;place-items:center}
+  .icon-btn:hover{background:var(--chip);color:var(--ink)}
+  .icon-btn.danger:hover{background:var(--red-soft);color:var(--red)}
+  .icon-btn svg{width:16px;height:16px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+  .chips .clabel{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);width:100%}
+  .chip{font-size:12.5px;font-weight:600;background:var(--chip);border-radius:999px;padding:5px 11px;line-height:1.4;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  .chip.crit{background:var(--blue-soft)}
+  .chip.act{background:var(--green-soft)}
+  .empty-state{border:1.5px dashed var(--line);border-radius:var(--radius);padding:36px 24px;text-align:center;color:var(--muted)}
+  .empty-state h3{color:var(--ink);margin:0 0 6px;font-size:17px}
+  .empty-state p{margin:0 auto 16px;font-size:14px;line-height:1.6;max-width:42ch}
+  /* XML + import */
+  .panel{padding:20px 22px;margin-top:14px}
+  .panel summary{font-weight:800;font-size:15.5px;cursor:pointer;display:flex;align-items:center;gap:8px;list-style:none}
+  .panel summary::-webkit-details-marker{display:none}
+  .panel summary svg{width:16px;height:16px;color:var(--faint)}
+  .panel .body{margin-top:14px}
+  pre.xml{background:var(--input);border:1px solid var(--line2);border-radius:12px;padding:14px;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11.5px;line-height:1.6;overflow-x:auto;max-height:340px;overflow-y:auto;white-space:pre;margin:0;color:var(--ink)}
+  .panel p.note{font-size:13.5px;color:var(--muted);line-height:1.6}
+  .panel textarea{width:100%;border:1px solid var(--line);background:var(--input);color:var(--ink);border-radius:11px;padding:11px 13px;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;min-height:110px;resize:vertical}
+  .row-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .file-label{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:10px 18px;font-weight:700;font-size:14.5px;border:1px solid var(--line);background:var(--surface);cursor:pointer;min-height:40px}
+  .file-label input{display:none}
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+  .step{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .step .n{width:28px;height:28px;border-radius:50%;background:var(--red);color:#fff;font-weight:800;font-size:13px;display:grid;place-items:center;margin-bottom:9px}
+  @media (prefers-color-scheme: dark){.step .n{color:#1b1e21}}
+  .step b{display:block;font-size:14.5px;margin-bottom:4px}
+  .step p{margin:0;font-size:13px;color:var(--muted);line-height:1.55}
+  .step code{font-family:"JetBrains Mono",monospace;font-size:11.5px;background:var(--chip);border-radius:5px;padding:1px 5px}
+  footer{margin-top:34px;color:var(--faint);font-size:13px;line-height:1.6;text-align:center}
+  #toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,80px);background:var(--ink);color:var(--bg);border-radius:999px;padding:11px 20px;font-size:14px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,.25);transition:transform .25s ease;z-index:50;max-width:92vw;text-align:center}
+  #toast.show{transform:translate(-50%,0)}
+  @media (max-width:1020px){
+    .hero{grid-template-columns:1fr}
+    .templates{grid-template-columns:repeat(3,1fr)}
+    .layout{grid-template-columns:1fr}
+    .builder{position:static}
+  }
+  @media (max-width:640px){
+    .wrap{padding:18px 13px 48px}
+    .hero-main{padding:22px 20px}
+    .templates{grid-template-columns:1fr 1fr}
+    .grid2{grid-template-columns:1fr}
+    .steps{grid-template-columns:1fr}
+    .builder{padding:18px}
+    .fc-btns{gap:2px}
+  }
+  @media (prefers-reduced-motion: reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-main">
+      <h1>Gmail filters, built by <em>dragging blocks</em> — not decoding Settings.</h1>
+      <p>Assemble a filter from matching rules and actions, stack up as many as you need, then download one file and import it straight into Gmail. Everything happens in this page — no account, no sign-in.</p>
+      <div class="hero-actions">
+        <a class="btn primary" href="#builder">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Start building
+        </a>
+        <button class="btn" id="heroDownload" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+          Download filters (.xml)
+        </button>
+        <a class="btn ghost" href="https://mail.google.com/mail/u/0/#settings/filters" target="_blank" rel="noopener">Open Gmail’s filter settings ↗</a>
+      </div>
+    </div>
+    <div class="hero-side">
+      <h2>How the round trip works</h2>
+      <ol>
+        <li><b>Build</b> — pick what a filter matches and what it does.</li>
+        <li><b>Export</b> — download the <b>gmail-filters.xml</b> file this page generates.</li>
+        <li><b>Import</b> — in Gmail: Settings → See all settings → Filters and Blocked Addresses → <b>Import filters</b>, choose the file, done.</li>
+      </ol>
+      <p class="mini">The export uses Gmail’s own filter file format — the same one Gmail produces under “Export filters” — so it imports cleanly and can be re-exported later.</p>
+    </div>
+  </div>
+
+  <!-- TEMPLATES -->
+  <div class="section-head">
+    <h2>Start from a template</h2>
+    <p>One tap loads it into the builder — edit anything before adding.</p>
+  </div>
+  <div class="templates" id="templates"></div>
+
+  <!-- MAIN LAYOUT -->
+  <div class="layout">
+
+    <!-- BUILDER -->
+    <section class="card builder" id="builder" aria-label="Filter builder">
+      <h2 id="builderTitle">New filter</h2>
+      <p class="sub">Drag a block into this panel — or just tap it — to jump to that piece. Fill in at least one match and one action.</p>
+
+      <div class="palette" id="palette">
+        <span class="palette-label">Match blocks · drag or tap</span>
+        <!-- injected -->
+      </div>
+
+      <div class="error" id="formError" role="alert"></div>
+
+      <div class="field" data-field="name">
+        <label for="fName">Filter name <span class="opt">— just for you, not sent to Gmail</span></label>
+        <input type="text" id="fName" placeholder="e.g. Newsletters → archive & label" autocomplete="off">
+      </div>
+
+      <fieldset>
+        <legend>When a message matches…</legend>
+        <div class="grid2">
+          <div class="field" data-field="from"><label for="fFrom">From</label><input type="text" id="fFrom" placeholder="sender@example.com" autocomplete="off"></div>
+          <div class="field" data-field="to"><label for="fTo">To</label><input type="text" id="fTo" placeholder="you+shopping@gmail.com" autocomplete="off"></div>
+        </div>
+        <div class="field" data-field="subject"><label for="fSubject">Subject contains</label><input type="text" id="fSubject" placeholder="Invoice, receipt, your order…" autocomplete="off"></div>
+        <div class="grid2">
+          <div class="field" data-field="has"><label for="fHas">Has the words</label><input type="text" id="fHas" placeholder="unsubscribe" autocomplete="off"></div>
+          <div class="field" data-field="hasnot"><label for="fHasNot">Doesn’t have</label><input type="text" id="fHasNot" placeholder="urgent" autocomplete="off"></div>
+        </div>
+        <div class="field" data-field="size" style="margin-bottom:2px">
+          <label>Size</label>
+          <div class="size-row">
+            <select id="fSizeOp" aria-label="Size comparison">
+              <option value="">Any size</option>
+              <option value="s_sl">Larger than</option>
+              <option value="s_ss">Smaller than</option>
+            </select>
+            <input type="number" id="fSizeVal" min="1" placeholder="10" aria-label="Size value">
+            <select id="fSizeUnit" aria-label="Size unit">
+              <option value="s_smb">MB</option>
+              <option value="s_skb">KB</option>
+              <option value="s_sb">bytes</option>
+            </select>
+          </div>
+          <span class="hint">Leave “Any size” selected to skip the size rule.</span>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>…do this</legend>
+        <div id="actionsList"><!-- injected checkrows --></div>
+      </fieldset>
+
+      <div class="preview">
+        <div class="plabel">Gmail search this creates</div>
+        <code id="livePreview"></code>
+      </div>
+
+      <div class="builder-actions">
+        <button class="btn primary" id="addBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          <span id="addBtnLabel">Add filter</span>
+        </button>
+        <button class="btn" id="clearBtn" type="button">Clear</button>
+      </div>
+    </section>
+
+    <!-- FILTERS + EXPORT -->
+    <div>
+      <div class="toolbar">
+        <span class="count" id="filterCount"></span>
+        <button class="btn small" id="importJump" type="button">Import XML</button>
+        <button class="btn small" id="copyXmlBtn" type="button">Copy XML</button>
+        <button class="btn small blue" id="downloadBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+          Download .xml
+        </button>
+      </div>
+
+      <div id="filterList"></div>
+
+      <details class="card panel" id="xmlPanel">
+        <summary>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg>
+          Preview the export file
+        </summary>
+        <div class="body">
+          <pre class="xml" id="xmlPreview"></pre>
+          <div class="row-btns">
+            <button class="btn small" id="copyXmlBtn2" type="button">Copy XML</button>
+            <button class="btn small primary" id="downloadBtn2" type="button">Download gmail-filters.xml</button>
+          </div>
+        </div>
+      </details>
+
+      <details class="card panel" id="importPanel">
+        <summary>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg>
+          Import filters you already have
+        </summary>
+        <div class="body">
+          <p class="note">Export your existing filters from Gmail (Settings → Filters and Blocked Addresses → Export), then bring the file here to see, reorder, edit, and re-export them. Imported filters are added to the list above.</p>
+          <textarea id="importText" placeholder="…or paste the XML here" spellcheck="false"></textarea>
+          <div class="row-btns">
+            <label class="file-label">Choose .xml file<input type="file" id="importFile" accept=".xml,text/xml,application/xml"></label>
+            <button class="btn" id="importPasteBtn" type="button">Import pasted XML</button>
+          </div>
+        </div>
+      </details>
+
+      <div class="section-head"><h2>Getting them into Gmail</h2></div>
+      <div class="steps">
+        <div class="step"><div class="n">1</div><b>Download the file</b><p>Use the Download button above. You’ll get <code>gmail-filters.xml</code> with every filter in your list.</p></div>
+        <div class="step"><div class="n">2</div><b>Open Gmail settings</b><p>In Gmail on desktop: gear icon → <b>See all settings</b> → <b>Filters and Blocked Addresses</b> tab.</p></div>
+        <div class="step"><div class="n">3</div><b>Import &amp; create</b><p>Click <b>Import filters</b>, choose the file, then <b>Create filters</b>. Tick “Also apply filter to matching conversations” there if you want it to clean up mail you already have.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Works with Gmail’s standard filter import/export format. This page runs entirely in your browser and stores nothing — close the tab and the list is gone, so download your file when you’re happy with it.<br>
+    Tip: in Gmail, a label with a slash like <b>Finance/Receipts</b> nests under its parent label automatically.
+  </footer>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  "use strict";
+  var $ = function(id){ return document.getElementById(id); };
+
+  /* ---------- Action definitions ---------- */
+  var ACTIONS = [
+    {key:"skip",    xml:"shouldArchive",                label:"Skip the Inbox (archive it)", hint:"Mail bypasses the inbox but stays searchable under All Mail."},
+    {key:"read",    xml:"shouldMarkAsRead",             label:"Mark as read", hint:"Arrives already read — no bold, no unread count."},
+    {key:"star",    xml:"shouldStar",                   label:"Star it", hint:"Adds a star so it stands out in lists."},
+    {key:"label",   xml:"label",                        label:"Apply a label", hint:"Type the label name. Use a slash to nest, e.g. Finance/Receipts.", input:{id:"aLabelText", placeholder:"e.g. Newsletters", type:"text"}},
+    {key:"category",xml:"smartLabelToApply",            label:"Categorize as", hint:"Files it under one of Gmail’s inbox categories.", select:{id:"aCategorySel", options:[
+        ["^smartlabel_personal","Primary / Personal"],["^smartlabel_social","Social"],["^smartlabel_promo","Promotions"],["^smartlabel_notification","Updates"],["^smartlabel_group","Forums"]]}},
+    {key:"forward", xml:"forwardTo",                    label:"Forward it to", hint:"The address must already be set up as a forwarding address in Gmail.", input:{id:"aForwardText", placeholder:"teammate@example.com", type:"email"}},
+    {key:"trash",   xml:"shouldTrash",                  label:"Delete it", hint:"Goes to Trash and is permanently deleted after 30 days."},
+    {key:"neverspam",xml:"shouldNeverSpam",             label:"Never send to Spam", hint:"Whitelists matching mail so it always lands in the inbox."},
+    {key:"alwaysimp",xml:"shouldAlwaysMarkAsImportant", label:"Always mark as important", hint:"Pins Gmail’s importance marker on every match."},
+    {key:"neverimp",xml:"shouldNeverMarkAsImportant",   label:"Never mark as important", hint:"Keeps matching mail out of the Important view."}
+  ];
+  var ACTION_BY_KEY = {}; ACTIONS.forEach(function(a){ ACTION_BY_KEY[a.key]=a; });
+
+  /* ---------- Palette blocks ---------- */
+  var BLOCKS = [
+    {label:"From", field:"from", input:"fFrom"},
+    {label:"To", field:"to", input:"fTo"},
+    {label:"Subject", field:"subject", input:"fSubject"},
+    {label:"Has the words", field:"has", input:"fHas"},
+    {label:"Doesn’t have", field:"hasnot", input:"fHasNot"},
+    {label:"Size", field:"size", input:"fSizeVal"},
+    {label:"★ Star it", action:"star"},
+    {label:"Skip Inbox", action:"skip"},
+    {label:"Apply label", action:"label"},
+    {label:"Delete it", action:"trash"}
+  ];
+
+  /* ---------- Templates ---------- */
+  var TEMPLATES = [
+    {name:"Newsletters → archive", desc:"Anything with “unsubscribe” skips the inbox and gets filed away.", color:"", icon:"mail",
+     data:{name:"Newsletters", has:"unsubscribe", actions:{skip:true, read:true, label:"Newsletters"}}},
+    {name:"Receipts & invoices", desc:"Order confirmations and receipts collected under one label.", color:"green", icon:"receipt",
+     data:{name:"Receipts", has:"(receipt OR invoice OR \"order confirmation\")", actions:{label:"Finance/Receipts", star:true}}},
+    {name:"Social notifications", desc:"Social network alerts land in Social, quietly.", color:"blue", icon:"users",
+     data:{name:"Social alerts", from:"(facebookmail.com OR twitter.com OR linkedin.com OR instagram.com)", actions:{category:"^smartlabel_social", skip:true, read:true}}},
+    {name:"Big attachments", desc:"Mail over 10 MB gets starred so large files are easy to find and clear out.", color:"yellow", icon:"paperclip",
+     data:{name:"Large mail", sizeOp:"s_sl", sizeVal:"10", sizeUnit:"s_smb", actions:{star:true, label:"Large attachments"}}},
+    {name:"VIP sender", desc:"Mail from one person is never spammed and always marked important.", color:"", icon:"star",
+     data:{name:"VIP", from:"", actions:{neverspam:true, alwaysimp:true, star:true}, focusFrom:true}}
+  ];
+  var ICONS = {
+    mail:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>',
+    receipt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 11h8"/></svg>',
+    users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    paperclip:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>',
+    star:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01Z"/></svg>'
+  };
+
+  /* ---------- State ---------- */
+  var filters = [];
+  var uid = 1;
+  var editingId = null;
+  var dragId = null;
+
+  function mkFilter(data, example){
+    return {
+      id: uid++,
+      example: !!example,
+      name: data.name || "",
+      from: data.from || "", to: data.to || "", subject: data.subject || "",
+      has: data.has || "", hasNot: data.hasNot || "",
+      attach: !!data.attach,
+      sizeOp: data.sizeOp || "", sizeVal: data.sizeVal || "", sizeUnit: data.sizeUnit || "s_smb",
+      actions: data.actions || {}
+    };
+  }
+
+  /* Starter examples — generic, removable */
+  filters.push(mkFilter({name:"Newsletters", has:"unsubscribe", actions:{skip:true, read:true, label:"Newsletters"}}, true));
+  filters.push(mkFilter({name:"Receipts", has:"(receipt OR invoice)", actions:{label:"Finance/Receipts"}}, true));
+
+  /* ---------- Build palette ---------- */
+  var grip = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
+  BLOCKS.forEach(function(b){
+    var el = document.createElement("button");
+    el.type = "button"; el.draggable = true;
+    el.className = "block" + (b.action ? " action" : "");
+    el.innerHTML = grip + "<span></span>";
+    el.querySelector("span").textContent = b.label;
+    el.addEventListener("click", function(){ activateBlock(b); });
+    el.addEventListener("dragstart", function(e){
+      e.dataTransfer.setData("text/plain", JSON.stringify(b));
+      e.dataTransfer.effectAllowed = "copy";
+    });
+    $("palette").appendChild(el);
+  });
+
+  function activateBlock(b){
+    if (b.action){
+      var cb = $("a_" + b.action);
+      if (cb && !cb.checked){ cb.checked = true; cb.dispatchEvent(new Event("change")); }
+      if (cb) cb.closest(".checkrow").scrollIntoView({block:"nearest", behavior:"smooth"});
+    } else {
+      var field = document.querySelector('[data-field="'+b.field+'"]');
+      var input = $(b.input);
+      if (field){ field.classList.remove("flash"); void field.offsetWidth; field.classList.add("flash"); setTimeout(function(){ field.classList.remove("flash"); }, 1600); }
+      if (input){ input.focus({preventScroll:false}); }
+    }
+    updatePreview();
+  }
+
+  var builderEl = $("builder");
+  builderEl.addEventListener("dragover", function(e){ e.preventDefault(); builderEl.classList.add("drag-over"); });
+  builderEl.addEventListener("dragleave", function(){ builderEl.classList.remove("drag-over"); });
+  builderEl.addEventListener("drop", function(e){
+    e.preventDefault(); builderEl.classList.remove("drag-over");
+    try { activateBlock(JSON.parse(e.dataTransfer.getData("text/plain"))); } catch(err){}
+  });
+
+  /* ---------- Build action checkrows ---------- */
+  var actionsList = $("actionsList");
+  ACTIONS.forEach(function(a){
+    var row = document.createElement("label");
+    row.className = "checkrow"; row.id = "row_" + a.key;
+    var html = '<input type="checkbox" id="a_' + a.key + '"><span class="t" style="flex:1"><b></b><span></span>';
+    if (a.input) html += '<span class="extra"><input type="'+a.input.type+'" id="'+a.input.id+'" placeholder="'+a.input.placeholder+'" autocomplete="off"></span>';
+    if (a.select){
+      html += '<select id="'+a.select.id+'">';
+      a.select.options.forEach(function(o){ html += '<option value="'+o[0]+'">'+o[1]+'</option>'; });
+      html += '</select>';
+    }
+    html += '</span>';
+    row.innerHTML = html;
+    row.querySelector("b").textContent = a.label;
+    row.querySelector(".t > span").textContent = a.hint;
+    var cb = row.querySelector("input[type=checkbox]");
+    cb.addEventListener("change", function(){ row.classList.toggle("on", cb.checked); updatePreview(); });
+    row.addEventListener("click", function(e){ if (e.target.tagName === "INPUT" && e.target.type !== "checkbox") e.preventDefault(); });
+    actionsList.appendChild(row);
+  });
+  /* Has attachment as an action-style row inside criteria is separate: add toggle row in match section via JS-appended checkbox */
+  var attachField = document.createElement("div");
+  attachField.className = "field"; attachField.setAttribute("data-field","attach"); attachField.style.marginTop = "10px";
+  attachField.innerHTML = '<label class="checkrow" style="margin:0"><input type="checkbox" id="fAttach"><span class="t"><b>Has attachment</b><span>Only match messages that carry a file.</span></span></label>';
+  document.querySelector('[data-field="size"]').appendChild(attachField);
+
+  /* ---------- Templates ---------- */
+  var tplWrap = $("templates");
+  TEMPLATES.forEach(function(t){
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "tpl";
+    b.innerHTML = '<span class="ic ' + t.color + '">' + ICONS[t.icon] + '</span><b></b><span></span>';
+    b.querySelector("b").textContent = t.name;
+    b.querySelectorAll("span")[1].textContent = t.desc;
+    b.addEventListener("click", function(){
+      loadIntoBuilder(t.data);
+      showToast("Template loaded — tweak it, then tap Add filter.");
+      $("builder").scrollIntoView({behavior:"smooth", block:"start"});
+      if (t.data.focusFrom) setTimeout(function(){ $("fFrom").focus(); }, 350);
+    });
+    tplWrap.appendChild(b);
+  });
+
+  /* ---------- Builder read / write ---------- */
+  function readBuilder(){
+    var actions = {};
+    ACTIONS.forEach(function(a){
+      if (!$("a_" + a.key).checked) return;
+      if (a.key === "label") actions.label = $("aLabelText").value.trim();
+      else if (a.key === "forward") actions.forward = $("aForwardText").value.trim();
+      else if (a.key === "category") actions.category = $("aCategorySel").value;
+      else actions[a.key] = true;
+    });
+    return {
+      name: $("fName").value.trim(),
+      from: $("fFrom").value.trim(), to: $("fTo").value.trim(), subject: $("fSubject").value.trim(),
+      has: $("fHas").value.trim(), hasNot: $("fHasNot").value.trim(),
+      attach: $("fAttach").checked,
+      sizeOp: $("fSizeOp").value, sizeVal: $("fSizeVal").value.trim(), sizeUnit: $("fSizeUnit").value,
+      actions: actions
+    };
+  }
+  function loadIntoBuilder(d){
+    $("fName").value = d.name || ""; $("fFrom").value = d.from || ""; $("fTo").value = d.to || "";
+    $("fSubject").value = d.subject || ""; $("fHas").value = d.has || ""; $("fHasNot").value = d.hasNot || "";
+    $("fAttach").checked = !!d.attach;
+    $("fSizeOp").value = d.sizeOp || ""; $("fSizeVal").value = d.sizeVal || ""; $("fSizeUnit").value = d.sizeUnit || "s_smb";
+    ACTIONS.forEach(function(a){
+      var on = d.actions && (d.actions[a.key] !== undefined && d.actions[a.key] !== false);
+      var cb = $("a_" + a.key); cb.checked = !!on;
+      $("row_" + a.key).classList.toggle("on", !!on);
+      if (a.key === "label") $("aLabelText").value = (d.actions && d.actions.label) || "";
+      if (a.key === "forward") $("aForwardText").value = (d.actions && d.actions.forward) || "";
+      if (a.key === "category" && d.actions && d.actions.category) $("aCategorySel").value = d.actions.category;
+    });
+    updatePreview();
+  }
+  function clearBuilder(){
+    editingId = null;
+    $("builderTitle").textContent = "New filter";
+    $("addBtnLabel").textContent = "Add filter";
+    loadIntoBuilder({actions:{}});
+    hideError();
+  }
+  function hasCriteria(f){
+    return !!(f.from || f.to || f.subject || f.has || f.hasNot || f.attach || (f.sizeOp && f.sizeVal));
+  }
+  function hasActions(f){
+    var ks = Object.keys(f.actions);
+    for (var i=0;i<ks.length;i++){
+      var v = f.actions[ks[i]];
+      if (ks[i] === "label" || ks[i] === "forward"){ if (v) return true; }
+      else if (v) return true;
+    }
+    return false;
+  }
+  function showError(msg){ var e = $("formError"); e.textContent = msg; e.classList.add("show"); }
+  function hideError(){ $("formError").classList.remove("show"); }
+
+  function autoName(f){
+    if (f.name) return f.name;
+    if (f.actions.label) return f.actions.label;
+    if (f.from) return "From " + f.from;
+    if (f.subject) return "Subject: " + f.subject;
+    if (f.has) return "Contains “" + f.has + "”";
+    return "Untitled filter";
+  }
+
+  /* ---------- Gmail search preview ---------- */
+  function searchQuery(f){
+    var parts = [];
+    if (f.from) parts.push("from:(" + f.from + ")");
+    if (f.to) parts.push("to:(" + f.to + ")");
+    if (f.subject) parts.push("subject:(" + f.subject + ")");
+    if (f.has) parts.push("(" + f.has + ")");
+    if (f.hasNot) parts.push("-(" + f.hasNot + ")");
+    if (f.attach) parts.push("has:attachment");
+    if (f.sizeOp && f.sizeVal){
+      var unit = f.sizeUnit === "s_skb" ? "K" : f.sizeUnit === "s_sb" ? "" : "M";
+      parts.push((f.sizeOp === "s_sl" ? "larger:" : "smaller:") + f.sizeVal + unit);
+    }
+    return parts.join(" ");
+  }
+  function updatePreview(){
+    var q = searchQuery(readBuilder());
+    $("livePreview").textContent = q || "";
+    if (!q) $("livePreview").innerHTML = '<span class="empty">Start filling in a match above and the equivalent Gmail search appears here.</span>';
+  }
+  ["fName","fFrom","fTo","fSubject","fHas","fHasNot","fSizeVal","aLabelText","aForwardText"].forEach(function(id){
+    var el = $(id); if (el) el.addEventListener("input", updatePreview);
+  });
+  ["fSizeOp","fSizeUnit","fAttach","aCategorySel"].forEach(function(id){
+    var el = $(id); if (el) el.addEventListener("change", updatePreview);
+  });
+
+  /* ---------- Add / edit ---------- */
+  $("addBtn").addEventListener("click", function(){
+    var f = readBuilder();
+    if (!hasCriteria(f)){ showError("Add at least one match first — a sender, a subject, some words, an attachment, or a size."); return; }
+    if (!f.actions.label && document.querySelector("#a_label:checked") && !$("aLabelText").value.trim()){ showError("You ticked “Apply a label” — type the label name, or untick it."); return; }
+    if ($("a_forward") && $("a_forward").checked && !$("aForwardText").value.trim()){ showError("You ticked “Forward it to” — enter the address, or untick it."); return; }
+    if (!hasActions(f)){ showError("Tick at least one action — what should Gmail do with matching mail?"); return; }
+    hideError();
+    f.name = autoName(f);
+    if (editingId){
+      for (var i=0;i<filters.length;i++) if (filters[i].id === editingId){ f.id = editingId; f.example = filters[i].example; filters[i] = f; }
+      showToast("Filter updated.");
+    } else {
+      f.id = uid++; f.example = false; filters.push(f);
+      showToast("Filter added — " + filters.length + " in your export.");
+    }
+    clearBuilder(); render();
+  });
+  $("clearBtn").addEventListener("click", clearBuilder);
+
+  /* ---------- Render filter list ---------- */
+  var CATEGORY_NAMES = {"^smartlabel_personal":"Primary","^smartlabel_social":"Social","^smartlabel_promo":"Promotions","^smartlabel_notification":"Updates","^smartlabel_group":"Forums"};
+  function criteriaChips(f){
+    var c = [];
+    if (f.from) c.push("From: " + f.from);
+    if (f.to) c.push("To: " + f.to);
+    if (f.subject) c.push("Subject: " + f.subject);
+    if (f.has) c.push("Has: " + f.has);
+    if (f.hasNot) c.push("Doesn’t have: " + f.hasNot);
+    if (f.attach) c.push("Has attachment");
+    if (f.sizeOp && f.sizeVal) c.push((f.sizeOp === "s_sl" ? "Larger than " : "Smaller than ") + f.sizeVal + (f.sizeUnit === "s_skb" ? " KB" : f.sizeUnit === "s_sb" ? " bytes" : " MB"));
+    return c;
+  }
+  function actionChips(f){
+    var c = [], a = f.actions;
+    if (a.skip) c.push("Skip Inbox");
+    if (a.read) c.push("Mark as read");
+    if (a.star) c.push("Star it");
+    if (a.label) c.push("Label: " + a.label);
+    if (a.category) c.push("Categorize: " + (CATEGORY_NAMES[a.category] || a.category));
+    if (a.forward) c.push("Forward to " + a.forward);
+    if (a.trash) c.push("Delete it");
+    if (a.neverspam) c.push("Never to Spam");
+    if (a.alwaysimp) c.push("Always important");
+    if (a.neverimp) c.push("Never important");
+    return c;
+  }
+  var ICON_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
+  var ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+  var ICON_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+
+  function render(){
+    var list = $("filterList");
+    list.innerHTML = "";
+    $("filterCount").innerHTML = "<b>" + filters.length + "</b> filter" + (filters.length === 1 ? "" : "s") + " in your export — drag to reorder";
+    if (!filters.length){
+      var empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.innerHTML = "<h3>No filters yet</h3><p>Build one on the left, load a template above, or import an XML file you exported from Gmail.</p>";
+      var b = document.createElement("button");
+      b.className = "btn primary"; b.type = "button"; b.textContent = "Load the newsletter template";
+      b.addEventListener("click", function(){ loadIntoBuilder(TEMPLATES[0].data); $("builder").scrollIntoView({behavior:"smooth"}); });
+      empty.appendChild(b);
+      list.appendChild(empty);
+    }
+    filters.forEach(function(f){
+      var card = document.createElement("article");
+      card.className = "filter-card"; card.draggable = true; card.dataset.id = f.id;
+      var top = document.createElement("div"); top.className = "fc-top";
+      top.innerHTML = '<span class="drag-handle" title="Drag to reorder">' + grip + '</span>' +
+        '<div class="fc-title"><h3></h3><div class="fc-search"></div></div>' +
+        '<div class="fc-btns">' +
+          '<button class="icon-btn" data-act="edit" title="Edit" aria-label="Edit filter">' + ICON_EDIT + '</button>' +
+          '<button class="icon-btn" data-act="dup" title="Duplicate" aria-label="Duplicate filter">' + ICON_COPY + '</button>' +
+          '<button class="icon-btn danger" data-act="del" title="Delete" aria-label="Delete filter">' + ICON_TRASH + '</button>' +
+        '</div>';
+      top.querySelector("h3").textContent = f.name;
+      if (f.example){
+        var badge = document.createElement("span"); badge.className = "badge"; badge.textContent = "Example";
+        top.querySelector("h3").appendChild(badge);
+      }
+      top.querySelector(".fc-search").textContent = searchQuery(f);
+      card.appendChild(top);
+
+      var cc = document.createElement("div"); cc.className = "chips";
+      cc.innerHTML = '<span class="clabel">Matches</span>';
+      criteriaChips(f).forEach(function(t){ var s = document.createElement("span"); s.className = "chip crit"; s.textContent = t; cc.appendChild(s); });
+      card.appendChild(cc);
+      var ac = document.createElement("div"); ac.className = "chips";
+      ac.innerHTML = '<span class="clabel">Then</span>';
+      actionChips(f).forEach(function(t){ var s = document.createElement("span"); s.className = "chip act"; s.textContent = t; ac.appendChild(s); });
+      card.appendChild(ac);
+
+      top.querySelector('[data-act="edit"]').addEventListener("click", function(){
+        editingId = f.id;
+        $("builderTitle").textContent = "Edit filter";
+        $("addBtnLabel").textContent = "Save changes";
+        loadIntoBuilder(f);
+        $("builder").scrollIntoView({behavior:"smooth", block:"start"});
+      });
+      top.querySelector('[data-act="dup"]').addEventListener("click", function(){
+        var copy = JSON.parse(JSON.stringify(f)); copy.id = uid++; copy.name = f.name + " (copy)"; copy.example = false;
+        filters.splice(filters.indexOf(f) + 1, 0, copy); render(); showToast("Duplicated.");
+      });
+      top.querySelector('[data-act="del"]').addEventListener("click", function(){
+        filters = filters.filter(function(x){ return x.id !== f.id; });
+        if (editingId === f.id) clearBuilder();
+        render(); showToast("Filter removed.");
+      });
+
+      card.addEventListener("dragstart", function(e){
+        dragId = f.id; card.classList.add("dragging");
+        e.dataTransfer.effectAllowed = "move";
+        try { e.dataTransfer.setData("text/plain", "filter:" + f.id); } catch(err){}
+      });
+      card.addEventListener("dragend", function(){
+        card.classList.remove("dragging");
+        list.querySelectorAll(".filter-card").forEach(function(c){ c.classList.remove("drop-target"); });
+      });
+      card.addEventListener("dragover", function(e){
+        if (dragId === null || dragId === f.id) return;
+        e.preventDefault(); card.classList.add("drop-target");
+      });
+      card.addEventListener("dragleave", function(){ card.classList.remove("drop-target"); });
+      card.addEventListener("drop", function(e){
+        e.preventDefault(); card.classList.remove("drop-target");
+        if (dragId === null || dragId === f.id) return;
+        var fromIdx = -1, toIdx = -1;
+        filters.forEach(function(x, i){ if (x.id === dragId) fromIdx = i; if (x.id === f.id) toIdx = i; });
+        if (fromIdx < 0 || toIdx < 0) return;
+        var moved = filters.splice(fromIdx, 1)[0];
+        filters.splice(toIdx, 0, moved);
+        dragId = null; render(); showToast("Order updated — that’s the order Gmail will list them in.");
+      });
+      list.appendChild(card);
+    });
+    $("xmlPreview").textContent = buildXML();
+  }
+
+  /* ---------- XML export (Gmail format) ---------- */
+  function escXml(s){
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
+  }
+  function propsFor(f){
+    var p = [];
+    if (f.from) p.push(["from", f.from]);
+    if (f.to) p.push(["to", f.to]);
+    if (f.subject) p.push(["subject", f.subject]);
+    if (f.has) p.push(["hasTheWord", f.has]);
+    if (f.hasNot) p.push(["doesNotHaveTheWord", f.hasNot]);
+    if (f.attach) p.push(["hasAttachment", "true"]);
+    if (f.sizeOp && f.sizeVal){
+      p.push(["size", f.sizeVal]); p.push(["sizeOperator", f.sizeOp]); p.push(["sizeUnit", f.sizeUnit || "s_smb"]);
+    }
+    var a = f.actions;
+    if (a.skip) p.push(["shouldArchive", "true"]);
+    if (a.read) p.push(["shouldMarkAsRead", "true"]);
+    if (a.star) p.push(["shouldStar", "true"]);
+    if (a.label) p.push(["label", a.label]);
+    if (a.category) p.push(["smartLabelToApply", a.category]);
+    if (a.forward) p.push(["forwardTo", a.forward]);
+    if (a.trash) p.push(["shouldTrash", "true"]);
+    if (a.neverspam) p.push(["shouldNeverSpam", "true"]);
+    if (a.alwaysimp) p.push(["shouldAlwaysMarkAsImportant", "true"]);
+    if (a.neverimp) p.push(["shouldNeverMarkAsImportant", "true"]);
+    return p;
+  }
+  function buildXML(){
+    var now = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+    var lines = [];
+    lines.push('<?xml version="1.0" encoding="UTF-8"?>');
+    lines.push('<feed xmlns="http://www.w3.org/2005/Atom" xmlns:apps="http://schemas.google.com/apps/2006">');
+    lines.push("  <title>Mail Filters</title>");
+    lines.push("  <id>tag:mail.google.com,2008:filter</id>");
+    lines.push("  <updated>" + now + "</updated>");
+    filters.forEach(function(f, i){
+      lines.push("  <entry>");
+      lines.push('    <category term="filter"></category>');
+      lines.push("    <title>Mail Filter</title>");
+      lines.push("    <id>tag:mail.google.com,2008:filter:" + (i + 1) + "</id>");
+      lines.push("    <updated>" + now + "</updated>");
+      lines.push("    <content></content>");
+      propsFor(f).forEach(function(pr){
+        lines.push('    <apps:property name="' + pr[0] + '" value="' + escXml(pr[1]) + '"/>');
+      });
+      lines.push("  </entry>");
+    });
+    lines.push("</feed>");
+    return lines.join("\n");
+  }
+  function downloadXML(){
+    if (!filters.length){ showToast("Add at least one filter first — there’s nothing to export yet."); return; }
+    var blob = new Blob([buildXML()], {type:"text/xml;charset=utf-8"});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "gmail-filters.xml";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 800);
+    showToast("Downloaded gmail-filters.xml — import it from Gmail’s Filters settings.");
+  }
+  function copyXML(){
+    if (!filters.length){ showToast("Add at least one filter first — there’s nothing to copy yet."); return; }
+    var text = buildXML();
+    function done(){ showToast("XML copied — paste it into a .xml file, or straight into the import box below."); }
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done, function(){ fallbackCopy(text); done(); });
+    } else { fallbackCopy(text); done(); }
+  }
+  function fallbackCopy(text){
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); } catch(e){}
+    ta.remove();
+  }
+  $("downloadBtn").addEventListener("click", downloadXML);
+  $("downloadBtn2").addEventListener("click", downloadXML);
+  $("heroDownload").addEventListener("click", downloadXML);
+  $("copyXmlBtn").addEventListener("click", copyXML);
+  $("copyXmlBtn2").addEventListener("click", copyXML);
+  $("importJump").addEventListener("click", function(){
+    var p = $("importPanel"); p.open = true; p.scrollIntoView({behavior:"smooth", block:"center"});
+  });
+
+  /* ---------- XML import ---------- */
+  function parseFiltersFromXML(text){
+    var doc = new DOMParser().parseFromString(text, "text/xml");
+    if (doc.querySelector("parsererror")) throw new Error("That doesn’t look like a Gmail filter XML file.");
+    var entries = doc.getElementsByTagName("entry");
+    var out = [];
+    for (var i=0;i<entries.length;i++){
+      var props = {};
+      var nodes = entries[i].getElementsByTagNameNS("http://schemas.google.com/apps/2006", "property");
+      if (!nodes.length) nodes = entries[i].getElementsByTagName("apps:property");
+      if (!nodes.length){
+        var all = entries[i].getElementsByTagName("*");
+        var tmp = [];
+        for (var j=0;j<all.length;j++) if (all[j].localName === "property") tmp.push(all[j]);
+        nodes = tmp;
+      }
+      for (var k=0;k<nodes.length;k++) props[nodes[k].getAttribute("name")] = nodes[k].getAttribute("value") || "";
+      var actions = {};
+      if (props.shouldArchive === "true" || props.shouldSkipArchive === "true") actions.skip = true;
+      if (props.shouldMarkAsRead === "true") actions.read = true;
+      if (props.shouldStar === "true") actions.star = true;
+      if (props.label) actions.label = props.label;
+      if (props.smartLabelToApply) actions.category = props.smartLabelToApply;
+      if (props.forwardTo) actions.forward = props.forwardTo;
+      if (props.shouldTrash === "true") actions.trash = true;
+      if (props.shouldNeverSpam === "true") actions.neverspam = true;
+      if (props.shouldAlwaysMarkAsImportant === "true") actions.alwaysimp = true;
+      if (props.shouldNeverMarkAsImportant === "true") actions.neverimp = true;
+      var f = {
+        from: props.from || "", to: props.to || "", subject: props.subject || "",
+        has: props.hasTheWord || "", hasNot: props.doesNotHaveTheWord || "",
+        attach: props.hasAttachment === "true",
+        sizeOp: props.sizeOperator || "", sizeVal: props.size || props.sizeValue || "", sizeUnit: props.sizeUnit || "s_smb",
+        actions: actions
+      };
+      f.name = autoName(f);
+      out.push(f);
+    }
+    return out;
+  }
+  function importXMLText(text){
+    try {
+      var parsed = parseFiltersFromXML(text);
+      if (!parsed.length){ showToast("No filters found in that file."); return; }
+      parsed.forEach(function(f){ var nf = mkFilter(f, false); filters.push(nf); });
+      render();
+      showToast("Imported " + parsed.length + " filter" + (parsed.length === 1 ? "" : "s") + ".");
+    } catch(e){ showToast(e.message || "Import failed — check the file and try again."); }
+  }
+  $("importFile").addEventListener("change", function(){
+    var file = this.files && this.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){ importXMLText(String(reader.result || "")); };
+    reader.readAsText(file);
+    this.value = "";
+  });
+  $("importPasteBtn").addEventListener("click", function(){
+    var t = $("importText").value.trim();
+    if (!t){ showToast("Paste some Gmail filter XML first."); return; }
+    importXMLText(t);
+  });
+
+  /* ---------- Toast ---------- */
+  var toastTimer = null;
+  function showToast(msg){
+    var t = $("toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 3400);
+  }
+
+  clearBuilder();
+  render();
+})();
+</script>
+</body>
+</html>
