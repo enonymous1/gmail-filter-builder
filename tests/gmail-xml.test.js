@@ -44,6 +44,8 @@ class El {
   focus() {}
   click() {}
   dispatchEvent() { return true; }
+  showModal() { this.open = true; }
+  close() { this.open = false; }
 }
 
 function makeDocument() {
@@ -90,6 +92,7 @@ class FakeDOMParser {
 }
 
 function runApp(storage) {
+  const state = { confirmAnswer: true };
   const sandbox = {
     document: makeDocument(),
     localStorage: storage,
@@ -98,12 +101,16 @@ function runApp(storage) {
     console,
     setTimeout, clearTimeout,
     Blob, URL, Event,
+    confirm: () => state.confirmAnswer,
   };
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
   vm.runInContext(script, sandbox);
-  return sandbox.window.__gmailFilterBuilder;
+  const seam = sandbox.window.__gmailFilterBuilder;
+  seam._setConfirm = (v) => { state.confirmAnswer = v; };
+  seam._document = sandbox.document;
+  return seam;
 }
 
 const GMAIL_XML = (entries) => `<?xml version="1.0" encoding="UTF-8"?>
@@ -198,4 +205,43 @@ test("search query uses the single size table", () => {
   assert.equal(q("s_skb"), "larger:10K");
   assert.equal(q("s_smb"), "larger:10M");
   assert.equal(q("s_sb"), "larger:10");
+});
+
+test("modal: New filter opens a clean dialog; Edit loads the filter into it", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  app.openNewFilter();
+  assert.equal(app.getDialog().open, true);
+  assert.equal(doc.getElementById("builderTitle").textContent, "New filter");
+  assert.equal(doc.getElementById("addBtnLabel").textContent, "Add filter");
+  const f = app.normalizeFilter({ name: "VIP", from: "boss@example.com", actions: { star: true } });
+  app.openEditFilter(f);
+  assert.equal(doc.getElementById("builderTitle").textContent, "Edit filter");
+  assert.equal(doc.getElementById("fFrom").value, "boss@example.com");
+  assert.equal(doc.getElementById("addBtnLabel").textContent, "Save changes");
+  // Opening New after Edit resets to a clean create (no stale editingId).
+  app.openNewFilter();
+  assert.equal(doc.getElementById("builderTitle").textContent, "New filter");
+  assert.equal(doc.getElementById("fFrom").value, "");
+});
+
+test("modal: closing with unsaved changes asks first; clean close needs no prompt", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  app.openNewFilter();
+  assert.equal(app.isDialogDirty(), false);
+  // Clean close: confirm must not be consulted — prove it by answering "no".
+  app._setConfirm(false);
+  assert.equal(app.requestCloseDialog(), true);
+  assert.equal(app.getDialog().open, false);
+  // Dirty close: "no" keeps it open, "yes" closes it.
+  app.openNewFilter();
+  doc.getElementById("fFrom").value = "someone@example.com";
+  assert.equal(app.isDialogDirty(), true);
+  app._setConfirm(false);
+  assert.equal(app.requestCloseDialog(), false);
+  assert.equal(app.getDialog().open, true);
+  app._setConfirm(true);
+  assert.equal(app.requestCloseDialog(), true);
+  assert.equal(app.getDialog().open, false);
 });

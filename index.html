@@ -71,11 +71,17 @@
   .tpl b{font-size:14px;line-height:1.3}
   .tpl span{font-size:12.5px;color:var(--muted);line-height:1.45}
   /* ---------- Layout ---------- */
-  .layout{display:grid;grid-template-columns:470px 1fr;gap:20px;align-items:start;margin-top:6px}
+  .layout{display:block;margin-top:6px}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
   /* ---------- Builder ---------- */
   .builder{padding:22px;position:sticky;top:16px}
   .builder h2{margin:0 0 4px;font-size:19px}
+  .builder-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .builder-head .icon-btn{flex:none}
+  /* ---------- Builder dialog ---------- */
+  dialog.builder-dialog{border:1px solid var(--line);border-radius:20px;padding:0;max-width:560px;width:calc(100vw - 32px);background:var(--surface);color:var(--ink);box-shadow:0 24px 60px rgba(0,0,0,.3)}
+  dialog.builder-dialog::backdrop{background:rgba(10,12,14,.5)}
+  dialog.builder-dialog .builder{position:static;box-shadow:none;border:0;border-radius:20px;max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px);overflow-y:auto}
   .builder .sub{color:var(--muted);font-size:13.5px;line-height:1.55;margin:0 0 16px}
   .palette{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:18px}
   .palette-label{width:100%;font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:1px}
@@ -188,10 +194,10 @@
       <h1>Gmail filters, built by <em>tapping blocks</em> — not decoding Settings.</h1>
       <p>Assemble a filter from matching rules and actions, stack up as many as you need, then download one file and import it straight into Gmail. Everything happens in this page — no account, no sign-in.</p>
       <div class="hero-actions">
-        <a class="btn primary" href="#builder">
+        <button class="btn primary" id="heroNew" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
           Start building
-        </a>
+        </button>
         <button class="btn" id="heroDownload" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
           Download filters (.xml)
@@ -213,16 +219,17 @@
   <!-- TEMPLATES -->
   <div class="section-head">
     <h2>Start from a template</h2>
-    <p>One tap loads it into the builder — edit anything before adding.</p>
+    <p>One tap opens it in the builder — edit anything before adding.</p>
   </div>
   <div class="templates" id="templates"></div>
 
-  <!-- MAIN LAYOUT -->
-  <div class="layout">
-
-    <!-- BUILDER -->
+  <!-- BUILDER (modal dialog — the list below is the main page) -->
+  <dialog id="filterDialog" class="builder-dialog" aria-labelledby="builderTitle">
     <section class="card builder" id="builder" aria-label="Filter builder">
-      <h2 id="builderTitle">New filter</h2>
+      <div class="builder-head">
+        <h2 id="builderTitle">New filter</h2>
+        <button class="icon-btn" id="dialogClose" type="button" title="Close" aria-label="Close">✕</button>
+      </div>
       <p class="sub">Tap a block to jump to that piece. Fill in at least one match and one action.</p>
 
       <div class="palette" id="palette">
@@ -283,13 +290,22 @@
           <span id="addBtnLabel">Add filter</span>
         </button>
         <button class="btn" id="clearBtn" type="button">Clear</button>
+        <button class="btn" id="cancelBtn" type="button">Cancel</button>
       </div>
     </section>
+  </dialog>
+
+  <!-- MAIN LAYOUT -->
+  <div class="layout">
 
     <!-- FILTERS + EXPORT -->
     <div>
       <div class="toolbar">
         <span class="count" id="filterCount"></span>
+        <button class="btn small primary" id="newFilterBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="width:14px;height:14px"><path d="M12 5v14M5 12h14"/></svg>
+          New filter
+        </button>
         <button class="btn small" id="importJump" type="button">Import XML</button>
         <button class="btn small" id="copyXmlBtn" type="button">Copy XML</button>
         <button class="btn small blue" id="downloadBtn" type="button">
@@ -626,6 +642,56 @@
   attachField.innerHTML = '<label class="checkrow" style="margin:0"><input type="checkbox" id="fAttach"><span class="t"><b>Has attachment</b><span>Only match messages that carry a file.</span></span></label>';
   document.querySelector('[data-field="size"]').appendChild(attachField);
 
+  /* ---------- Builder dialog ---------- */
+  // One dialog for creating and editing: New filter, templates, and Edit
+  // all open the same form. The form code does not care where it lives;
+  // only these open/close helpers know about the dialog.
+  var dialog = $("filterDialog");
+  var lastOpener = null;
+  var dialogSnapshot = "";
+  function builderSnapshot(){ return JSON.stringify(readBuilder()); }
+  function isDialogDirty(){ return dialog.open && builderSnapshot() !== dialogSnapshot; }
+  function openDialog(opener){
+    lastOpener = opener || document.activeElement;
+    dialogSnapshot = builderSnapshot();
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
+    var first = $("fName"); if (first) first.focus();
+  }
+  function requestCloseDialog(){
+    if (isDialogDirty() && !window.confirm("Discard this filter? Your changes haven’t been added yet.")) return false;
+    dialog.close();
+    return true;
+  }
+  function openNewFilter(opener){
+    clearBuilder();
+    openDialog(opener);
+  }
+  function openEditFilter(f, opener){
+    editingId = f.id;
+    $("builderTitle").textContent = "Edit filter";
+    $("addBtnLabel").textContent = "Save changes";
+    loadIntoBuilder(f);
+    openDialog(opener);
+  }
+  dialog.addEventListener("cancel", function (e) {
+    // Esc: keep the dialog open when there are unsaved changes and the
+    // user decides not to discard them.
+    if (isDialogDirty() && !window.confirm("Discard this filter? Your changes haven’t been added yet.")) e.preventDefault();
+  });
+  dialog.addEventListener("click", function (e) {
+    if (e.target === dialog) requestCloseDialog(); // backdrop click
+  });
+  dialog.addEventListener("close", function () {
+    hideError();
+    if (lastOpener && lastOpener.focus) lastOpener.focus();
+    lastOpener = null;
+  });
+  $("dialogClose").addEventListener("click", function () { requestCloseDialog(); });
+  $("cancelBtn").addEventListener("click", function () { requestCloseDialog(); });
+  $("newFilterBtn").addEventListener("click", function (e) { openNewFilter(e.currentTarget); });
+  $("heroNew").addEventListener("click", function (e) { openNewFilter(e.currentTarget); });
+
   /* ---------- Templates ---------- */
   var tplWrap = $("templates");
   TEMPLATES.forEach(function(t){
@@ -634,10 +700,11 @@
     b.innerHTML = '<span class="ic ' + t.color + '">' + ICONS[t.icon] + '</span><b></b><span></span>';
     b.querySelector("b").textContent = t.name;
     b.querySelectorAll("span")[1].textContent = t.desc;
-    b.addEventListener("click", function(){
+    b.addEventListener("click", function (e) {
+      clearBuilder(); // also resets editingId, so Add creates a new filter
       loadIntoBuilder(t.data);
+      openDialog(e.currentTarget);
       showToast("Template loaded — tweak it, then tap Add filter.");
-      $("builder").scrollIntoView({behavior:"smooth", block:"start"});
       if (t.data.focusFrom) setTimeout(function(){ $("fFrom").focus(); }, 350);
     });
     tplWrap.appendChild(b);
@@ -786,7 +853,7 @@
       f.example = false; filters.push(f);
       showToast("Filter added — " + filters.length + " in your export.");
     }
-    clearBuilder(); render();
+    clearBuilder(); render(); dialog.close();
   });
   $("clearBtn").addEventListener("click", clearBuilder);
 
@@ -832,7 +899,11 @@
       empty.innerHTML = "<h3>No filters yet</h3><p>Build one on the left, load a template above, or import an XML file you exported from Gmail.</p>";
       var b = document.createElement("button");
       b.className = "btn primary"; b.type = "button"; b.textContent = "Load the newsletter template";
-      b.addEventListener("click", function(){ loadIntoBuilder(TEMPLATES[0].data); $("builder").scrollIntoView({behavior:"smooth"}); });
+      b.addEventListener("click", function (e) {
+        clearBuilder();
+        loadIntoBuilder(TEMPLATES[0].data);
+        openDialog(e.currentTarget);
+      });
       empty.appendChild(b);
       list.appendChild(empty);
     }
@@ -864,12 +935,8 @@
       actionChips(f).forEach(function(t){ var s = document.createElement("span"); s.className = "chip act"; s.textContent = t; ac.appendChild(s); });
       card.appendChild(ac);
 
-      top.querySelector('[data-act="edit"]').addEventListener("click", function(){
-        editingId = f.id;
-        $("builderTitle").textContent = "Edit filter";
-        $("addBtnLabel").textContent = "Save changes";
-        loadIntoBuilder(f);
-        $("builder").scrollIntoView({behavior:"smooth", block:"start"});
+      top.querySelector('[data-act="edit"]').addEventListener("click", function (e) {
+        openEditFilter(f, e.currentTarget);
       });
       top.querySelector('[data-act="dup"]').addEventListener("click", function(){
         var copy = JSON.parse(JSON.stringify(f)); copy.id = uid++; copy.name = f.name + " (copy)"; copy.example = false;
@@ -1127,6 +1194,9 @@
       buildXML: buildXML, parseFiltersFromXML: parseFiltersFromXML,
       validateFilter: validateFilter, propsFor: propsFor,
       searchQuery: searchQuery, normalizeFilter: normalizeFilter,
+      openDialog: openDialog, openNewFilter: openNewFilter,
+      openEditFilter: openEditFilter, requestCloseDialog: requestCloseDialog,
+      isDialogDirty: isDialogDirty, getDialog: function () { return dialog; },
       getFilters: function () { return filters; },
       setFilters: function (list) { filters = list; render(); }
     };

@@ -134,8 +134,8 @@ Upload `index.html` (and `.nojekyll`, if the host is GitHub Pages) to the host's
      Replace this comment with: ![Full round trip: build a filter, export it, import it into Gmail](docs/assets/round-trip.gif) -->
 
 1. Open the site.
-2. Fill in the builder, or tap a template to load it and edit anything before adding.
-3. Click **Add filter**. Drag filter cards to reorder them, or edit, duplicate, and delete them.
+2. Click **New filter** (or tap a template, or **Edit** on a card) to open the builder dialog. Fill it in, or edit what the template loaded.
+3. Click **Add filter** (or **Save changes** when editing) — the dialog closes and the card joins the list. Drag filter cards to reorder them, or edit, duplicate, and delete them. Closing the dialog with unsaved changes asks first.
 4. Click **Download .xml** to save `gmail-filters.xml`.
 
 ### Import into Gmail
