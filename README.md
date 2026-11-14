@@ -31,10 +31,12 @@ Everything runs locally in your browser. There is no backend, no account, and no
 
 ### Known limitations
 
-- **No persistence.** There is no save, no localStorage, and no JSON backup yet — a refresh wipes the list. Download the XML before closing the tab. (Tracking as the top follow-up; see [Staff review](docs/STAFF-REVIEW.md).)
-- **No 1,000-filter guard.** Gmail rejects filter sets over 1,000 filters; the app does not warn you yet. Keep your list under 1,000.
-- **Import is lossy in two cases.** A filter that applies two labels keeps only the last one, and `excludeChats` is dropped on import. Both are documented in the review.
-- **No automated tests or CI yet.** Verification today is the manual checklist in [Local Development](#local-development).
+- **Autosave is local only.** The list autosaves to this browser's `localStorage` and survives refreshes, but there is no account, sync, or JSON backup yet — the XML download is still the durable copy. Clear your browser data and the working copy is gone.
+- **Gmail's 1,000-filter limit is enforced in the app.** The toolbar shows `n / 1000`, and adding past 1,000 is refused with an error. Editing an existing filter at the limit still works.
+- **Import reports what it skips.** Unknown properties and entries with no match criteria are skipped with a reason instead of silently vanishing. Multi-label filters and `excludeChats` now round-trip.
+- **No duplicate detection yet.** Importing the same file twice doubles the list.
+- **Reordering is drag-and-drop only.** There is no keyboard path to move a filter up or down yet.
+- **Large lists are slow.** The list re-renders in full on every change; lists of several hundred filters work, but there is no virtualization. See [Staff review](docs/STAFF-REVIEW.md) for the full list.
 
 ## Prerequisites
 
@@ -61,6 +63,9 @@ gmail-filter-builder/
 ├── README.md             # This file
 ├── LICENSE               # MIT
 ├── .nojekyll            # Tells GitHub Pages not to run Jekyll
+├── .github/workflows/test.yml  # CI: runs node --test on push / PR
+├── tests/
+│   └── gmail-xml.test.js # node:test, zero deps: XML contract, validation, persistence
 └── docs/
     ├── STAFF-REVIEW.md   # Staff-level code review (2026-11-13) with prioritized fixes
     └── assets/
@@ -87,7 +92,13 @@ python3 -m http.server 8000
 # then open http://localhost:8000/
 ```
 
-There is no build, no watcher, and no test runner. Edit `index.html`, refresh the browser, and check the change. That is the whole loop — and that is also the main architectural weakness the staff review calls out: the app is one 905-line file with no modules, no types, and no tests, so the review proposes splitting it into modules and adding a test harness before the next feature lands.
+There is no build and no watcher. There is a test runner: the Gmail XML contract, validation, persistence, and search-query code are covered by `tests/gmail-xml.test.js` (Node's built-in runner, zero dependencies), which executes the real script from `index.html` in a stub DOM via the `window.__gmailFilterBuilder` test seam. Run it before committing:
+
+```sh
+node --test tests/gmail-xml.test.js
+```
+
+CI runs the same command on every push and pull request (`.github/workflows/test.yml`). Edit `index.html`, refresh the browser, and check the change — and run the tests whenever you touch `propsFor()`, `parseFiltersFromXML()`, `validateFilter()`, or the filter model. The remaining architectural weakness the staff review calls out is that the app is one ~1,000-line file with no modules and no types, so the review proposes splitting it into modules before the next feature lands.
 
 ### Manual smoke checklist (until tests exist)
 

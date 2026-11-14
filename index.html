@@ -342,7 +342,7 @@
   </div>
 
   <footer>
-    Works with Gmail’s standard filter import/export format. This page runs entirely in your browser and stores nothing — close the tab and the list is gone, so download your file when you’re happy with it.<br>
+    Works with Gmail’s standard filter import/export format. This page runs entirely in your browser — your list autosaves to this browser only, and the XML download is the copy to keep.<br>
     Tip: in Gmail, a label with a slash like <b>Finance/Receipts</b> nests under its parent label automatically.
   </footer>
 </div>
@@ -354,14 +354,122 @@
   "use strict";
   var $ = function(id){ return document.getElementById(id); };
 
+  /**
+   * A single Gmail filter, as the app holds it in memory.
+   * This is the app's own shape — Gmail's XML uses different property
+   * names (see {@link propsFor}); the mapping between the two is the
+   * load-bearing contract of this project. Keep them in sync.
+   *
+   * @typedef {Object} FilterActions
+   * @property {boolean} [skip]      Skip the Inbox (archive).
+   * @property {boolean} [read]      Mark as read.
+   * @property {boolean} [star]      Star it.
+   * @property {string}  [label]     First label to apply, e.g. "Finance/Receipts".
+   * @property {string}  [category]  Smart-label value, e.g. "^smartlabel_social".
+   * @property {string}  [forward]   Verified forwarding address.
+   * @property {boolean} [trash]     Delete it.
+   * @property {boolean} [neverspam] Never send to Spam.
+   * @property {boolean} [alwaysimp] Always mark as important.
+   * @property {boolean} [neverimp]  Never mark as important.
+   *
+   * @typedef {Object} Filter
+   * @property {number} id
+   * @property {string} name          Display-only; never sent to Gmail.
+   * @property {string} from
+   * @property {string} to
+   * @property {string} subject
+   * @property {string} has           Has the words.
+   * @property {string} hasNot        Doesn't have.
+   * @property {boolean} attach       Has attachment.
+   * @property {boolean} excludeChats Exclude chats from matching.
+   * @property {string} sizeOp        "" | "s_sl" (larger) | "s_ss" (smaller).
+   * @property {string} sizeVal       Size number as typed, e.g. "10".
+   * @property {string} sizeUnit      "s_sb" | "s_skb" | "s_smb".
+   * @property {string[]} labels      Every label to apply, in order.
+   * @property {FilterActions} actions
+   * @property {boolean} [example]    True for the two preloaded starter filters.
+   */
+
+  /* ---------- Gmail contract (single source of truth) ---------- */
+  // Property names are Gmail's, reverse-engineered from its own export;
+  // there is no published schema. See the JSDoc on propsFor().
+  // Gmail's filters endpoint fails above ~1,000 filters (observed 503);
+  // the app must warn before the user builds past it.
+  var GMAIL_MAX_FILTERS = 1000;
+  var GMAIL_NS = {
+    ATOM: "http://www.w3.org/2005/Atom",
+    APPS: "http://schemas.google.com/apps/2006"
+  };
+  var GMAIL_FEED_ID = "tag:mail.google.com,2008:filter";
+  var XML_FILENAME = "gmail-filters.xml";
+  var STORAGE_KEY = "gmail-filter-builder/v1"; // bump on any model change
+  var TOAST_MS = 3400;
+
+  /** Size units: one table drives the form, chips, search text, and XML. */
+  var SIZE_UNITS = {
+    s_sb:  { xml: "s_sb",  search: "",  label: "bytes" },
+    s_skb: { xml: "s_skb", search: "K", label: "KB" },
+    s_smb: { xml: "s_smb", search: "M", label: "MB" }
+  };
+  var SIZE_OPERATORS = { s_sl: "larger", s_ss: "smaller" };
+
+  /** Smart labels: one table drives the form select and the chip text. */
+  var SMART_LABELS = {
+    "^smartlabel_personal":     "Primary",
+    "^smartlabel_social":       "Social",
+    "^smartlabel_promo":        "Promotions",
+    "^smartlabel_notification": "Updates",
+    "^smartlabel_group":        "Forums"
+  };
+
+  /* ---------- Persistence (working copy; XML is the durable export) ---------- */
+  function saveFilters() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
+    } catch (err) {
+      // Private mode / quota: the list still works for this session,
+      // but the user must download the XML before closing the tab.
+      if (typeof console !== "undefined" && console.warn) console.warn("Could not autosave filters:", err);
+      showToast("Autosave failed — download the XML before closing this tab.");
+    }
+  }
+  /**
+   * Restore the working copy saved by saveFilters(). Returns true when
+   * at least one filter was restored, so the caller can skip the
+   * starter examples in that case.
+   * @returns {boolean}
+   */
+  function loadSavedFilters() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return false;
+      var saved = JSON.parse(raw);
+      if (!Array.isArray(saved)) return false;
+      var restored = 0;
+      saved.forEach(function (f) {
+        var nf = normalizeFilter(f); // drops malformed entries
+        if (nf) { filters.push(nf); restored++; }
+      });
+      if (!restored) return false;
+      // Restart ids above the highest restored id (a fresh counter
+      // would collide with restored ids after a reload).
+      uid = filters.reduce(function (m, f) { return Math.max(m, f.id || 0); }, 0) + 1;
+      return true;
+    } catch (err) {
+      if (typeof console !== "undefined" && console.warn) console.warn("Could not restore saved filters:", err);
+      return false;
+    }
+  }
+
   /* ---------- Action definitions ---------- */
   var ACTIONS = [
     {key:"skip",    xml:"shouldArchive",                label:"Skip the Inbox (archive it)", hint:"Mail bypasses the inbox but stays searchable under All Mail."},
     {key:"read",    xml:"shouldMarkAsRead",             label:"Mark as read", hint:"Arrives already read — no bold, no unread count."},
     {key:"star",    xml:"shouldStar",                   label:"Star it", hint:"Adds a star so it stands out in lists."},
     {key:"label",   xml:"label",                        label:"Apply a label", hint:"Type the label name. Use a slash to nest, e.g. Finance/Receipts.", input:{id:"aLabelText", placeholder:"e.g. Newsletters", type:"text"}},
-    {key:"category",xml:"smartLabelToApply",            label:"Categorize as", hint:"Files it under one of Gmail’s inbox categories.", select:{id:"aCategorySel", options:[
-        ["^smartlabel_personal","Primary / Personal"],["^smartlabel_social","Social"],["^smartlabel_promo","Promotions"],["^smartlabel_notification","Updates"],["^smartlabel_group","Forums"]]}},
+    {key:"category",xml:"smartLabelToApply",            label:"Categorize as", hint:"Files it under one of Gmail’s inbox categories.", select:{id:"aCategorySel", options:
+        // Derived from SMART_LABELS above — one table, not two.
+        Object.keys(SMART_LABELS).map(function (k) { return [k, SMART_LABELS[k]]; })}},
     {key:"forward", xml:"forwardTo",                    label:"Forward it to", hint:"The address must already be set up as a forwarding address in Gmail.", input:{id:"aForwardText", placeholder:"teammate@example.com", type:"email"}},
     {key:"trash",   xml:"shouldTrash",                  label:"Delete it", hint:"Goes to Trash and is permanently deleted after 30 days."},
     {key:"neverspam",xml:"shouldNeverSpam",             label:"Never send to Spam", hint:"Whitelists matching mail so it always lands in the inbox."},
@@ -410,23 +518,60 @@
   var uid = 1;
   var editingId = null;
   var dragId = null;
+  // Edit-session carry-over: the builder has one label field and no
+  // exclude-chats control, so a filter's extra labels and excludeChats
+  // are held here while it is being edited and re-attached on save.
+  var currentExtraLabels = [];
+  var currentExcludeChats = false;
 
-  function mkFilter(data, example){
+  /**
+   * Normalize an untrusted filter-shaped object (localStorage, import)
+   * into a Filter, or return null when it cannot be used. This is the
+   * single boundary every outside filter crosses before entering filters[].
+   * @param {*} raw
+   * @returns {Filter|null}
+   */
+  function normalizeFilter(raw){
+    if (!raw || typeof raw !== "object") return null;
+    var actions = (raw.actions && typeof raw.actions === "object") ? raw.actions : {};
+    var labels = [];
+    if (Array.isArray(raw.labels)) labels = raw.labels.filter(function (l) { return typeof l === "string" && l; });
+    else if (typeof actions.label === "string" && actions.label) labels = [actions.label];
+    var str = function (v) { return typeof v === "string" ? v : (v === undefined || v === null ? "" : String(v)); };
     return {
-      id: uid++,
-      example: !!example,
-      name: data.name || "",
-      from: data.from || "", to: data.to || "", subject: data.subject || "",
-      has: data.has || "", hasNot: data.hasNot || "",
-      attach: !!data.attach,
-      sizeOp: data.sizeOp || "", sizeVal: data.sizeVal || "", sizeUnit: data.sizeUnit || "s_smb",
-      actions: data.actions || {}
+      id: (typeof raw.id === "number" && raw.id > 0) ? raw.id : uid++,
+      example: !!raw.example,
+      name: str(raw.name),
+      from: str(raw.from), to: str(raw.to), subject: str(raw.subject),
+      has: str(raw.has), hasNot: str(raw.hasNot),
+      attach: !!raw.attach,
+      excludeChats: !!raw.excludeChats,
+      sizeOp: (raw.sizeOp === "s_sl" || raw.sizeOp === "s_ss") ? raw.sizeOp : "",
+      sizeVal: str(raw.sizeVal),
+      sizeUnit: (typeof raw.sizeUnit === "string" && SIZE_UNITS[raw.sizeUnit]) ? raw.sizeUnit : "s_smb",
+      labels: labels,
+      actions: {
+        skip: !!actions.skip, read: !!actions.read, star: !!actions.star,
+        label: labels[0] || "",
+        category: str(actions.category),
+        forward: str(actions.forward),
+        trash: !!actions.trash, neverspam: !!actions.neverspam,
+        alwaysimp: !!actions.alwaysimp, neverimp: !!actions.neverimp
+      }
     };
   }
 
-  /* Starter examples — generic, removable */
-  filters.push(mkFilter({name:"Newsletters", has:"unsubscribe", actions:{skip:true, read:true, label:"Newsletters"}}, true));
-  filters.push(mkFilter({name:"Receipts", has:"(receipt OR invoice)", actions:{label:"Finance/Receipts"}}, true));
+  function mkFilter(data, example){
+    var f = normalizeFilter(data || {});
+    if (f) f.example = !!example;
+    return f;
+  }
+
+  /* Starter examples — generic, removable; skipped when a saved list was restored. */
+  if (!loadSavedFilters()) {
+    filters.push(mkFilter({name:"Newsletters", has:"unsubscribe", actions:{skip:true, read:true, label:"Newsletters"}}, true));
+    filters.push(mkFilter({name:"Receipts", has:"(receipt OR invoice)", actions:{label:"Finance/Receipts"}}, true));
+  }
 
   /* ---------- Build palette ---------- */
   var grip = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
@@ -520,16 +665,24 @@
       else if (a.key === "category") actions.category = $("aCategorySel").value;
       else actions[a.key] = true;
     });
+    // The builder edits one label; any further labels on the filter
+    // being edited are carried over untouched (see currentExtraLabels).
+    var labels = actions.label ? [actions.label] : [];
+    currentExtraLabels.forEach(function (l) { if (l && labels.indexOf(l) < 0) labels.push(l); });
     return {
       name: $("fName").value.trim(),
       from: $("fFrom").value.trim(), to: $("fTo").value.trim(), subject: $("fSubject").value.trim(),
       has: $("fHas").value.trim(), hasNot: $("fHasNot").value.trim(),
       attach: $("fAttach").checked,
+      excludeChats: currentExcludeChats,
       sizeOp: $("fSizeOp").value, sizeVal: $("fSizeVal").value.trim(), sizeUnit: $("fSizeUnit").value,
+      labels: labels,
       actions: actions
     };
   }
   function loadIntoBuilder(d){
+    currentExtraLabels = (d.labels || []).slice(1);
+    currentExcludeChats = !!d.excludeChats;
     $("fName").value = d.name || ""; $("fFrom").value = d.from || ""; $("fTo").value = d.to || "";
     $("fSubject").value = d.subject || ""; $("fHas").value = d.has || ""; $("fHasNot").value = d.hasNot || "";
     $("fAttach").checked = !!d.attach;
@@ -563,6 +716,33 @@
     }
     return false;
   }
+  /**
+   * Validate a filter built by readBuilder(). Returns a list of problems;
+   * empty means the filter may enter the list. Keep every rule here so
+   * the add handler, the import path, and tests check the same thing.
+   * @param {Filter} f
+   * @param {boolean} isNew False when saving an edit (the limit check is skipped then).
+   * @returns {string[]}
+   */
+  function validateFilter(f, isNew){
+    var problems = [];
+    if (!hasCriteria(f)) problems.push("Add at least one match first — a sender, a subject, some words, an attachment, or a size.");
+    if (!hasActions(f)) problems.push("Tick at least one action — what should Gmail do with matching mail?");
+    if (f.actions.label !== undefined && !f.actions.label)
+      problems.push("You ticked “Apply a label” — type the label name, or untick it.");
+    if (f.actions.forward !== undefined) {
+      if (!f.actions.forward) problems.push("You ticked “Forward it to” — enter the address, or untick it.");
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.actions.forward))
+        problems.push("That forwarding address doesn’t look like an email address.");
+    }
+    if (f.sizeOp && !/^\d+$/.test(f.sizeVal))
+      problems.push("Size must be a whole number of " + (SIZE_UNITS[f.sizeUnit] || SIZE_UNITS.s_smb).label + ".");
+    else if (f.sizeOp && parseInt(f.sizeVal, 10) < 1)
+      problems.push("Size must be at least 1.");
+    if (isNew && filters.length >= GMAIL_MAX_FILTERS)
+      problems.push("You’re at Gmail’s " + GMAIL_MAX_FILTERS + "-filter limit — remove one before adding another.");
+    return problems;
+  }
   function showError(msg){ var e = $("formError"); e.textContent = msg; e.classList.add("show"); }
   function hideError(){ $("formError").classList.remove("show"); }
 
@@ -585,8 +765,9 @@
     if (f.hasNot) parts.push("-(" + f.hasNot + ")");
     if (f.attach) parts.push("has:attachment");
     if (f.sizeOp && f.sizeVal){
-      var unit = f.sizeUnit === "s_skb" ? "K" : f.sizeUnit === "s_sb" ? "" : "M";
-      parts.push((f.sizeOp === "s_sl" ? "larger:" : "smaller:") + f.sizeVal + unit);
+      // Gmail's larger:/smaller: suffix is K for KB, M for MB, nothing for bytes.
+      var unit = (SIZE_UNITS[f.sizeUnit] || SIZE_UNITS.s_smb).search;
+      parts.push(((SIZE_OPERATORS[f.sizeOp] || "larger") + ":") + f.sizeVal + unit);
     }
     return parts.join(" ");
   }
@@ -605,17 +786,16 @@
   /* ---------- Add / edit ---------- */
   $("addBtn").addEventListener("click", function(){
     var f = readBuilder();
-    if (!hasCriteria(f)){ showError("Add at least one match first — a sender, a subject, some words, an attachment, or a size."); return; }
-    if (!f.actions.label && document.querySelector("#a_label:checked") && !$("aLabelText").value.trim()){ showError("You ticked “Apply a label” — type the label name, or untick it."); return; }
-    if ($("a_forward") && $("a_forward").checked && !$("aForwardText").value.trim()){ showError("You ticked “Forward it to” — enter the address, or untick it."); return; }
-    if (!hasActions(f)){ showError("Tick at least one action — what should Gmail do with matching mail?"); return; }
+    var problems = validateFilter(f, !editingId);
+    if (problems.length){ showError(problems.join(" ")); return; }
     hideError();
+    f = normalizeFilter(f) || f;
     f.name = autoName(f);
     if (editingId){
-      for (var i=0;i<filters.length;i++) if (filters[i].id === editingId){ f.id = editingId; f.example = filters[i].example; filters[i] = f; }
+      for (var i=0;i<filters.length;i++) if (filters[i].id === editingId){ f.id = editingId; f.example = false; filters[i] = f; }
       showToast("Filter updated.");
     } else {
-      f.id = uid++; f.example = false; filters.push(f);
+      f.example = false; filters.push(f);
       showToast("Filter added — " + filters.length + " in your export.");
     }
     clearBuilder(); render();
@@ -623,7 +803,7 @@
   $("clearBtn").addEventListener("click", clearBuilder);
 
   /* ---------- Render filter list ---------- */
-  var CATEGORY_NAMES = {"^smartlabel_personal":"Primary","^smartlabel_social":"Social","^smartlabel_promo":"Promotions","^smartlabel_notification":"Updates","^smartlabel_group":"Forums"};
+  // Category display names live in SMART_LABELS (Gmail contract block above) — do not duplicate the table here.
   function criteriaChips(f){
     var c = [];
     if (f.from) c.push("From: " + f.from);
@@ -632,7 +812,7 @@
     if (f.has) c.push("Has: " + f.has);
     if (f.hasNot) c.push("Doesn’t have: " + f.hasNot);
     if (f.attach) c.push("Has attachment");
-    if (f.sizeOp && f.sizeVal) c.push((f.sizeOp === "s_sl" ? "Larger than " : "Smaller than ") + f.sizeVal + (f.sizeUnit === "s_skb" ? " KB" : f.sizeUnit === "s_sb" ? " bytes" : " MB"));
+    if (f.sizeOp && f.sizeVal) c.push((f.sizeOp === "s_sl" ? "Larger than " : "Smaller than ") + f.sizeVal + " " + (SIZE_UNITS[f.sizeUnit] || SIZE_UNITS.s_smb).label);
     return c;
   }
   function actionChips(f){
@@ -640,8 +820,9 @@
     if (a.skip) c.push("Skip Inbox");
     if (a.read) c.push("Mark as read");
     if (a.star) c.push("Star it");
-    if (a.label) c.push("Label: " + a.label);
-    if (a.category) c.push("Categorize: " + (CATEGORY_NAMES[a.category] || a.category));
+    if (f.labels && f.labels.length > 1) c.push("Labels: " + f.labels.join(", "));
+    else if (a.label) c.push("Label: " + a.label);
+    if (a.category) c.push("Categorize: " + (SMART_LABELS[a.category] || a.category));
     if (a.forward) c.push("Forward to " + a.forward);
     if (a.trash) c.push("Delete it");
     if (a.neverspam) c.push("Never to Spam");
@@ -656,7 +837,7 @@
   function render(){
     var list = $("filterList");
     list.innerHTML = "";
-    $("filterCount").innerHTML = "<b>" + filters.length + "</b> filter" + (filters.length === 1 ? "" : "s") + " in your export — drag to reorder";
+    $("filterCount").innerHTML = "<b>" + filters.length + "</b> / " + GMAIL_MAX_FILTERS + " filter" + (filters.length === 1 ? "" : "s") + " in your export — drag to reorder";
     if (!filters.length){
       var empty = document.createElement("div");
       empty.className = "empty-state";
@@ -739,12 +920,24 @@
       list.appendChild(card);
     });
     $("xmlPreview").textContent = buildXML();
+    saveFilters(); // autosave the working copy on every change
   }
 
   /* ---------- XML export (Gmail format) ---------- */
   function escXml(s){
     return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
   }
+  /**
+   * Map one filter to Gmail's Atom-feed properties.
+   * Property names are Gmail's, not ours: there is no published schema,
+   * they are reverse-engineered from Gmail's own export, and Gmail's
+   * importer rejects unknown names — so `shouldArchive` (not the more
+   * readable `shouldSkipArchive`) and `size` (not `sizeValue`) are
+   * load-bearing spellings. Verified against gmail-forensic-toolkit's
+   * `filters_to_xml` mapping. Do not rename without a round-trip test.
+   * @param {Filter} f
+   * @returns {Array<[string, string]>} [name, value] pairs, in export order.
+   */
   function propsFor(f){
     var p = [];
     if (f.from) p.push(["from", f.from]);
@@ -753,6 +946,7 @@
     if (f.has) p.push(["hasTheWord", f.has]);
     if (f.hasNot) p.push(["doesNotHaveTheWord", f.hasNot]);
     if (f.attach) p.push(["hasAttachment", "true"]);
+    if (f.excludeChats) p.push(["excludeChats", "true"]);
     if (f.sizeOp && f.sizeVal){
       p.push(["size", f.sizeVal]); p.push(["sizeOperator", f.sizeOp]); p.push(["sizeUnit", f.sizeUnit || "s_smb"]);
     }
@@ -760,7 +954,10 @@
     if (a.skip) p.push(["shouldArchive", "true"]);
     if (a.read) p.push(["shouldMarkAsRead", "true"]);
     if (a.star) p.push(["shouldStar", "true"]);
-    if (a.label) p.push(["label", a.label]);
+    // One `label` property per label: a filter may apply several, and
+    // collapsing them to one loses data on round-trip (see F3).
+    var labels = (f.labels && f.labels.length) ? f.labels : (a.label ? [a.label] : []);
+    labels.forEach(function (l) { p.push(["label", l]); });
     if (a.category) p.push(["smartLabelToApply", a.category]);
     if (a.forward) p.push(["forwardTo", a.forward]);
     if (a.trash) p.push(["shouldTrash", "true"]);
@@ -773,15 +970,15 @@
     var now = new Date().toISOString().replace(/\.\d+Z$/, "Z");
     var lines = [];
     lines.push('<?xml version="1.0" encoding="UTF-8"?>');
-    lines.push('<feed xmlns="http://www.w3.org/2005/Atom" xmlns:apps="http://schemas.google.com/apps/2006">');
+    lines.push('<feed xmlns="' + GMAIL_NS.ATOM + '" xmlns:apps="' + GMAIL_NS.APPS + '">');
     lines.push("  <title>Mail Filters</title>");
-    lines.push("  <id>tag:mail.google.com,2008:filter</id>");
+    lines.push("  <id>" + GMAIL_FEED_ID + "</id>");
     lines.push("  <updated>" + now + "</updated>");
     filters.forEach(function(f, i){
       lines.push("  <entry>");
       lines.push('    <category term="filter"></category>');
       lines.push("    <title>Mail Filter</title>");
-      lines.push("    <id>tag:mail.google.com,2008:filter:" + (i + 1) + "</id>");
+      lines.push("    <id>" + GMAIL_FEED_ID + ":" + (i + 1) + "</id>");
       lines.push("    <updated>" + now + "</updated>");
       lines.push("    <content></content>");
       propsFor(f).forEach(function(pr){
@@ -797,7 +994,7 @@
     var blob = new Blob([buildXML()], {type:"text/xml;charset=utf-8"});
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
-    a.href = url; a.download = "gmail-filters.xml";
+    a.href = url; a.download = XML_FILENAME;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function(){ URL.revokeObjectURL(url); }, 800);
     showToast("Downloaded gmail-filters.xml — import it from Gmail’s Filters settings.");
@@ -827,52 +1024,89 @@
   });
 
   /* ---------- XML import ---------- */
+  // Known Gmail filter properties. Anything else means the entry comes
+  // from a newer / different format — skip that entry with a reason
+  // instead of importing it half-done (the toolkit does the same).
+  var KNOWN_PROPS = ["from", "to", "subject", "hasTheWord", "doesNotHaveTheWord",
+    "hasAttachment", "excludeChats", "size", "sizeOperator", "sizeUnit", "label",
+    "shouldArchive", "shouldSkipArchive", "shouldMarkAsRead", "shouldStar",
+    "shouldTrash", "shouldAlwaysMarkAsImportant", "shouldNeverMarkAsImportant",
+    "shouldNeverSpam", "smartLabelToApply", "forwardTo", "sizeValue"];
+  /**
+   * Parse a Gmail filter export. Returns both the filters and the entries
+   * that could not be imported, so a bad entry never silently vanishes.
+   * Accepts the legacy names `shouldSkipArchive` / `sizeValue` (emitted by
+   * the first build) as a fallback; the exporter never emits them.
+   * Repeated `label` properties are all kept (see F3); `excludeChats`
+   * is carried through instead of dropped.
+   * @param {string} text Raw XML text.
+   * @returns {{ filters: Filter[], skipped: Array<{ entry: number, reason: string }> }}
+   */
   function parseFiltersFromXML(text){
     var doc = new DOMParser().parseFromString(text, "text/xml");
     if (doc.querySelector("parsererror")) throw new Error("That doesn’t look like a Gmail filter XML file.");
     var entries = doc.getElementsByTagName("entry");
-    var out = [];
+    var out = [], skipped = [];
     for (var i=0;i<entries.length;i++){
       var props = {};
-      var nodes = entries[i].getElementsByTagNameNS("http://schemas.google.com/apps/2006", "property");
+      var labels = [];
+      var nodes = entries[i].getElementsByTagNameNS(GMAIL_NS.APPS, "property");
       if (!nodes.length) nodes = entries[i].getElementsByTagName("apps:property");
       if (!nodes.length){
+        // Exports vary in how they declare the `apps` prefix; fall back
+        // to matching on the local name instead of the prefix.
         var all = entries[i].getElementsByTagName("*");
         var tmp = [];
         for (var j=0;j<all.length;j++) if (all[j].localName === "property") tmp.push(all[j]);
         nodes = tmp;
       }
-      for (var k=0;k<nodes.length;k++) props[nodes[k].getAttribute("name")] = nodes[k].getAttribute("value") || "";
+      var unknown = null;
+      for (var k=0;k<nodes.length;k++) {
+        var pname = nodes[k].getAttribute("name");
+        var pvalue = nodes[k].getAttribute("value") || "";
+        if (pname === "label") { labels.push(pvalue); continue; }
+        if (KNOWN_PROPS.indexOf(pname) < 0) { unknown = pname; break; }
+        props[pname] = pvalue;
+      }
+      if (unknown) { skipped.push({ entry: i + 1, reason: "unknown property " + unknown }); continue; }
       var actions = {};
       if (props.shouldArchive === "true" || props.shouldSkipArchive === "true") actions.skip = true;
       if (props.shouldMarkAsRead === "true") actions.read = true;
       if (props.shouldStar === "true") actions.star = true;
-      if (props.label) actions.label = props.label;
+      if (labels.length) actions.label = labels[0];
       if (props.smartLabelToApply) actions.category = props.smartLabelToApply;
       if (props.forwardTo) actions.forward = props.forwardTo;
       if (props.shouldTrash === "true") actions.trash = true;
       if (props.shouldNeverSpam === "true") actions.neverspam = true;
       if (props.shouldAlwaysMarkAsImportant === "true") actions.alwaysimp = true;
       if (props.shouldNeverMarkAsImportant === "true") actions.neverimp = true;
-      var f = {
+      var f = normalizeFilter({
         from: props.from || "", to: props.to || "", subject: props.subject || "",
         has: props.hasTheWord || "", hasNot: props.doesNotHaveTheWord || "",
         attach: props.hasAttachment === "true",
+        excludeChats: props.excludeChats === "true",
         sizeOp: props.sizeOperator || "", sizeVal: props.size || props.sizeValue || "", sizeUnit: props.sizeUnit || "s_smb",
+        labels: labels,
         actions: actions
-      };
+      });
+      if (!f || !hasCriteria(f)) { skipped.push({ entry: i + 1, reason: "no match criteria" }); continue; }
       f.name = autoName(f);
       out.push(f);
     }
-    return out;
+    return { filters: out, skipped: skipped };
   }
   function importXMLText(text){
     try {
       var parsed = parseFiltersFromXML(text);
-      if (!parsed.length){ showToast("No filters found in that file."); return; }
-      parsed.forEach(function(f){ var nf = mkFilter(f, false); filters.push(nf); });
+      if (!parsed.filters.length && !parsed.skipped.length){ showToast("No filters found in that file."); return; }
+      parsed.filters.forEach(function(f){ filters.push(f); });
       render();
-      showToast("Imported " + parsed.length + " filter" + (parsed.length === 1 ? "" : "s") + ".");
+      var msg = "Imported " + parsed.filters.length + " filter" + (parsed.filters.length === 1 ? "" : "s") + ".";
+      if (parsed.skipped.length) {
+        msg += " " + parsed.skipped.length + " skipped (" + parsed.skipped.map(function (s) { return "#" + s.entry + ": " + s.reason; }).join("; ") + ").";
+        if (typeof console !== "undefined" && console.warn) console.warn("Skipped filter entries on import:", parsed.skipped);
+      }
+      showToast(msg);
     } catch(e){ showToast(e.message || "Import failed — check the file and try again."); }
   }
   $("importFile").addEventListener("change", function(){
@@ -894,7 +1128,20 @@
   function showToast(msg){
     var t = $("toast"); t.textContent = msg; t.classList.add("show");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 3400);
+    toastTimer = setTimeout(function(){ t.classList.remove("show"); }, TOAST_MS);
+  }
+
+  /* ---------- Test seam ---------- */
+  // Exposed for tests (tests/gmail-xml.test.js) and debugging only.
+  // The app works without it; nothing in the page reads it.
+  if (typeof window !== "undefined") {
+    window.__gmailFilterBuilder = {
+      buildXML: buildXML, parseFiltersFromXML: parseFiltersFromXML,
+      validateFilter: validateFilter, propsFor: propsFor,
+      searchQuery: searchQuery, normalizeFilter: normalizeFilter,
+      getFilters: function () { return filters; },
+      setFilters: function (list) { filters = list; render(); }
+    };
   }
 
   clearBuilder();
