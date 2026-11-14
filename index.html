@@ -75,14 +75,11 @@
   .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
   /* ---------- Builder ---------- */
   .builder{padding:22px;position:sticky;top:16px}
-  .builder.drag-over{outline:2px dashed var(--red);outline-offset:-8px}
   .builder h2{margin:0 0 4px;font-size:19px}
   .builder .sub{color:var(--muted);font-size:13.5px;line-height:1.55;margin:0 0 16px}
   .palette{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:18px}
   .palette-label{width:100%;font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:1px}
-  .block{border:1.5px dashed color-mix(in srgb,var(--faint) 55%,transparent);background:var(--surface2);color:var(--ink);border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600;cursor:grab;display:inline-flex;gap:6px;align-items:center;min-height:36px}
-  .block:active{cursor:grabbing}
-  .block svg{width:13px;height:13px;color:var(--faint)}
+  .block{border:1.5px dashed color-mix(in srgb,var(--faint) 55%,transparent);background:var(--surface2);color:var(--ink);border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;gap:6px;align-items:center;min-height:36px}
   .block.action{border-style:solid;border-color:var(--line);background:var(--blue-soft);color:var(--ink)}
   fieldset{border:0;padding:0;margin:0 0 18px}
   legend{font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);padding:0;margin-bottom:10px}
@@ -188,7 +185,7 @@
   <!-- HERO -->
   <div class="hero">
     <div class="hero-main">
-      <h1>Gmail filters, built by <em>dragging blocks</em> — not decoding Settings.</h1>
+      <h1>Gmail filters, built by <em>tapping blocks</em> — not decoding Settings.</h1>
       <p>Assemble a filter from matching rules and actions, stack up as many as you need, then download one file and import it straight into Gmail. Everything happens in this page — no account, no sign-in.</p>
       <div class="hero-actions">
         <a class="btn primary" href="#builder">
@@ -226,10 +223,10 @@
     <!-- BUILDER -->
     <section class="card builder" id="builder" aria-label="Filter builder">
       <h2 id="builderTitle">New filter</h2>
-      <p class="sub">Drag a block into this panel — or just tap it — to jump to that piece. Fill in at least one match and one action.</p>
+      <p class="sub">Tap a block to jump to that piece. Fill in at least one match and one action.</p>
 
       <div class="palette" id="palette">
-        <span class="palette-label">Match blocks · drag or tap</span>
+        <span class="palette-label">Match blocks · tap to jump</span>
         <!-- injected -->
       </div>
 
@@ -577,15 +574,11 @@
   var grip = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
   BLOCKS.forEach(function(b){
     var el = document.createElement("button");
-    el.type = "button"; el.draggable = true;
+    el.type = "button";
     el.className = "block" + (b.action ? " action" : "");
-    el.innerHTML = grip + "<span></span>";
+    el.innerHTML = "<span></span>";
     el.querySelector("span").textContent = b.label;
     el.addEventListener("click", function(){ activateBlock(b); });
-    el.addEventListener("dragstart", function(e){
-      e.dataTransfer.setData("text/plain", JSON.stringify(b));
-      e.dataTransfer.effectAllowed = "copy";
-    });
     $("palette").appendChild(el);
   });
 
@@ -603,13 +596,8 @@
     updatePreview();
   }
 
-  var builderEl = $("builder");
-  builderEl.addEventListener("dragover", function(e){ e.preventDefault(); builderEl.classList.add("drag-over"); });
-  builderEl.addEventListener("dragleave", function(){ builderEl.classList.remove("drag-over"); });
-  builderEl.addEventListener("drop", function(e){
-    e.preventDefault(); builderEl.classList.remove("drag-over");
-    try { activateBlock(JSON.parse(e.dataTransfer.getData("text/plain"))); } catch(err){}
-  });
+  /* Palette blocks are tap-to-jump only — no drag handling here.
+     (Filter-card reorder drag lives in render().) */
 
   /* ---------- Build action checkrows ---------- */
   var actionsList = $("actionsList");

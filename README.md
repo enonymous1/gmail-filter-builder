@@ -1,6 +1,6 @@
 # Gmail Filter Builder
 
-Build Gmail filters by dragging blocks — no account, no sign-in, no server. Assemble match rules and actions in your browser, then download one file and import it straight into Gmail.
+Build Gmail filters by tapping blocks — no account, no sign-in, no server. Assemble match rules and actions in your browser, then download one file and import it straight into Gmail.
 
 **Live site:** https://enonymous1.github.io/gmail-filter-builder/
 
@@ -21,7 +21,7 @@ Everything runs locally in your browser. There is no backend, no account, and no
 
 ### Features
 
-- Drag-or-tap match blocks (From, To, Subject, Has / Doesn't have words, Size, Has attachment) and action blocks (Star it, Skip Inbox, Apply a label, Delete it)
+- Tap-to-jump match blocks (From, To, Subject, Has / Doesn't have words, Size, Has attachment) and action blocks (Star it, Skip Inbox, Apply a label, Delete it) — tap one to jump to that field
 - Five one-tap templates: Newsletters, Receipts & invoices, Social notifications, Big attachments, VIP sender
 - Live Gmail-search preview for the filter you are building (`from:(…) subject:(…) larger:10M …`)
 - Filter list with drag-to-reorder, edit, duplicate, and delete
