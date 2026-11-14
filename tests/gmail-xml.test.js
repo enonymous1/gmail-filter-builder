@@ -313,6 +313,22 @@ test("import modal: opens, imports, and closes on success", () => {
   assert.equal(app.getFilters()[0].from, "real@example.com");
 });
 
+test("cards show their position in the export order", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  // Fresh page: starters are #1 and #2. (The stub DOM keeps every card
+  // render() ever appended, so read the first render's cards.)
+  const list = doc.getElementById("filterList");
+  assert.match(list.children[0].children[0].innerHTML, /order-num[^>]*>1</);
+  assert.match(list.children[1].children[0].innerHTML, /order-num[^>]*>2</);
+  // Under a filter, the visible card keeps its full-list position.
+  const mk = (actions) => app.normalizeFilter({ from: "a@b.c", actions });
+  app.setFilters([mk({ skip: true }), mk({ star: true }), mk({ trash: true })]);
+  app.setActionFilter("star");
+  const cards = list.children;
+  assert.match(cards[cards.length - 1].children[0].innerHTML, /order-num[^>]*>2</);
+});
+
 test("clear all asks first — even for only starters — and a cleared list stays empty after reload", () => {
   const storage = makeStorage();
   const app = runApp(storage);

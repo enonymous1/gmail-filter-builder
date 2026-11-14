@@ -144,6 +144,7 @@
   .filter-card.dragging{opacity:.45}
   .filter-card.drop-target{border-color:var(--red);box-shadow:0 0 0 2px var(--red-soft)}
   .fc-top{display:flex;gap:10px;align-items:flex-start}
+  .order-num{font-size:12px;font-weight:700;color:var(--faint);font-variant-numeric:tabular-nums;min-width:20px;text-align:right;flex:none;padding-top:7px}
   .drag-handle{cursor:grab;color:var(--faint);padding:6px 2px;flex:none;border-radius:6px}
   .drag-handle:active{cursor:grabbing}
   .drag-handle svg{width:16px;height:16px;display:block}
@@ -929,7 +930,9 @@
       var card = document.createElement("article");
       card.className = "filter-card"; card.draggable = true; card.dataset.id = f.id;
       var top = document.createElement("div"); top.className = "fc-top";
-      top.innerHTML = '<span class="drag-handle" title="Drag to reorder">' + grip + '</span>' +
+      var order = filters.indexOf(f) + 1; // position in the full list = export order
+      top.innerHTML = '<span class="order-num" title="Position in your export">' + order + '</span>' +
+        '<span class="drag-handle" title="Drag to reorder">' + grip + '</span>' +
         '<div class="fc-title"><h3></h3><div class="fc-search"></div></div>' +
         '<div class="fc-btns">' +
           '<button class="icon-btn" data-act="edit" title="Edit" aria-label="Edit filter">' + ICON_EDIT + '</button>' +

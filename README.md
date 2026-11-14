@@ -26,6 +26,7 @@ Everything runs locally in your browser. There is no backend, no account, and no
 - Two starter examples (Newsletters, Receipts) show the shape of a filter — they are demo data only: importing your own filters replaces them, and they are never written to an export
 - Live Gmail-search preview for the filter you are building (`from:(…) subject:(…) larger:10M …`)
 - Filter list with drag-to-reorder, edit, duplicate, and delete
+- Numbered cards: each card shows its position in the export (1, 2, 3…), so the order you see is the order Gmail lists them in
 - Action counts and filter: the list header shows how many filters use each action, and a dropdown narrows the cards to one action — view-only, so order and export are unchanged
 - Export as `gmail-filters.xml` (download or copy to clipboard), with a live XML preview
 - Import an existing Gmail `mailFilters.xml` export — drag the file onto the drop zone, browse for it, or paste the XML — and edit those filters
