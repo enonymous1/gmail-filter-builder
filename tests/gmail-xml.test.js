@@ -300,3 +300,39 @@ test("modal: closing with unsaved changes asks first; clean close needs no promp
   assert.equal(app.requestCloseDialog(), true);
   assert.equal(app.getDialog().open, false);
 });
+
+test("import modal: opens, imports, and closes on success", () => {
+  const app = runApp(makeStorage());
+  app.openImportDialog();
+  assert.equal(app.getImportDialog().open, true);
+  app.importXMLText(GMAIL_XML(`
+<entry><category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:1</id><updated>2026-11-13T00:00:00Z</updated><content/>
+<apps:property name="from" value="real@example.com"/><apps:property name="shouldArchive" value="true"/></entry>`));
+  assert.equal(app.getImportDialog().open, false);
+  assert.equal(app.getFilters().length, 1);
+  assert.equal(app.getFilters()[0].from, "real@example.com");
+});
+
+test("clear all asks first — even for only starters — and a cleared list stays empty after reload", () => {
+  const storage = makeStorage();
+  const app = runApp(storage);
+  const doc = app._document;
+  assert.equal(app.getFilters().length, 2);
+  assert.equal(doc.getElementById("clearAllBtn").disabled, false);
+  app._setConfirm(false);
+  app.clearAllFilters();
+  assert.equal(app.getFilters().length, 2);
+  app._setConfirm(true);
+  app.clearAllFilters();
+  assert.equal(app.getFilters().length, 0);
+  assert.equal(doc.getElementById("clearAllBtn").disabled, true);
+  // Reload: the emptied list stays empty — no re-seeded starters.
+  const app2 = runApp(storage);
+  assert.equal(app2.getFilters().length, 0);
+  // Same path with real filters present (note: app2 has its own stub DOM).
+  const mk = (actions) => app2.normalizeFilter({ from: "a@b.c", actions });
+  app2.setFilters([mk({ skip: true }), mk({ star: true }), mk({ trash: true })]);
+  assert.equal(app2._document.getElementById("clearAllBtn").disabled, false);
+  app2.clearAllFilters();
+  assert.equal(app2.getFilters().length, 0);
+});

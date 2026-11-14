@@ -28,7 +28,8 @@ Everything runs locally in your browser. There is no backend, no account, and no
 - Filter list with drag-to-reorder, edit, duplicate, and delete
 - Action counts and filter: the list header shows how many filters use each action, and a dropdown narrows the cards to one action — view-only, so order and export are unchanged
 - Export as `gmail-filters.xml` (download or copy to clipboard), with a live XML preview
-- Import an existing Gmail `mailFilters.xml` export (file picker or paste) and edit those filters
+- Import an existing Gmail `mailFilters.xml` export — drag the file onto the drop zone, browse for it, or paste the XML — and edit those filters
+- Clear all: one button empties the list, with a confirm first (even for just the starter examples); a cleared list stays empty on reload
 - System-aware light / dark theme; responsive down to mobile widths, with the filter list in two columns on wide displays
 
 ### Known limitations
@@ -107,7 +108,7 @@ CI runs the same command on every push and pull request (`.github/workflows/test
 1. Load the **Newsletters** template (the builder dialog opens), tap **Add filter** — the dialog closes, a third card appears, and the XML preview regenerates.
 2. Drag a filter card above another — the order changes and the XML entry order follows it.
 3. Click **Download .xml** — the file contains `<feed xmlns="http://www.w3.org/2005/Atom">`, `<title>Mail Filters</title>`, and `shouldArchive` (not `shouldSkipArchive`) for a Skip-Inbox filter.
-4. Import that same file back via **Import XML** — the filters reappear with Skip Inbox and size intact.
+4. Import that same file back via **Import Filters** (drop the file or paste the XML) — the dialog closes and the filters reappear with Skip Inbox and size intact.
 5. Try adding a filter with no match and no action — the form shows an error and adds nothing.
 6. Toggle the OS light/dark theme — the page follows it, with no unreadable text in either mode.
 
@@ -157,7 +158,7 @@ Import creates new filters — it does not overwrite your existing ones. Try it 
 
 ### Import existing filters into the app
 
-Export your current filters from Gmail (same tab → **Export**), then in the app open **Import filters you already have** and either choose the `.xml` file or paste the XML. Imported filters are added to your list, where you can reorder, edit, and re-export them. Importing replaces the two starter examples if they are still there — they are demo data and never appear in an export. Two filters with the same match are kept as-is — the app does not de-duplicate yet.
+Export your current filters from Gmail (same tab → **Export**), then in the app click **Import Filters**: drop the `.xml` file onto the zone, browse for it, or paste the XML. Imported filters are added to your list, where you can reorder, edit, and re-export them. Importing replaces the two starter examples if they are still there — they are demo data and never appear in an export. Two filters with the same match are kept as-is — the app does not de-duplicate yet.
 
 ## Architecture
 

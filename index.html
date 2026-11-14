@@ -79,16 +79,25 @@
   .builder-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
   .builder-head .icon-btn{flex:none}
   /* ---------- Builder dialog ---------- */
-  dialog.builder-dialog{border:1px solid var(--line);border-radius:20px;padding:0;max-width:560px;width:calc(100vw - 32px);background:var(--surface);color:var(--ink);box-shadow:0 24px 60px rgba(0,0,0,.3)}
-  dialog.builder-dialog::backdrop{background:rgba(10,12,14,.5)}
+  dialog.builder-dialog,dialog.import-dialog{border:1px solid var(--line);border-radius:20px;padding:0;max-width:560px;width:calc(100vw - 32px);background:var(--surface);color:var(--ink);box-shadow:0 24px 60px rgba(0,0,0,.3)}
+  dialog.builder-dialog::backdrop,dialog.import-dialog::backdrop{background:rgba(10,12,14,.5)}
   dialog.builder-dialog .builder{position:static;box-shadow:none;border:0;border-radius:20px;max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px);overflow-y:auto}
+  dialog.import-dialog{padding:22px;max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px);overflow-y:auto}
+  dialog.import-dialog h2{margin:0 0 4px;font-size:19px}
+  dialog.import-dialog textarea{min-height:120px;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px}
+  .drop-zone{display:block;border:1.5px dashed var(--line);border-radius:14px;padding:26px 18px;text-align:center;color:var(--muted);cursor:pointer;font-size:14px}
+  .drop-zone b{color:var(--ink)}
+  .drop-zone.drag-over{border-color:var(--blue);background:var(--blue-soft);color:var(--ink)}
+  .drop-zone input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+  .btn.danger{color:var(--red);border-color:color-mix(in srgb,var(--red) 55%,transparent)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
   /* Two-column builder on wide displays: matches left, actions right. */
   @media (min-width:860px){
     dialog.builder-dialog{max-width:920px}
     .builder-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
     .builder-grid .grid2{grid-template-columns:1fr}
   }
-  .builder .sub{color:var(--muted);font-size:13.5px;line-height:1.55;margin:0 0 16px}
+  .builder .sub,.import-dialog .sub{color:var(--muted);font-size:13.5px;line-height:1.55;margin:0 0 16px}
   fieldset{border:0;padding:0;margin:0 0 18px}
   legend{font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);padding:0;margin-bottom:10px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -165,8 +174,6 @@
   .panel p.note{font-size:13.5px;color:var(--muted);line-height:1.6}
   .panel textarea{width:100%;border:1px solid var(--line);background:var(--input);color:var(--ink);border-radius:11px;padding:11px 13px;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;min-height:110px;resize:vertical}
   .row-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-  .file-label{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:10px 18px;font-weight:700;font-size:14.5px;border:1px solid var(--line);background:var(--surface);cursor:pointer;min-height:40px}
-  .file-label input{display:none}
   .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
   .step{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
   .step .n{width:28px;height:28px;border-radius:50%;background:var(--red);color:#fff;font-weight:800;font-size:13px;display:grid;place-items:center;margin-bottom:9px}
@@ -316,7 +323,8 @@
         <select id="actionFilter" class="filter-select" aria-label="Filter list by action">
           <option value="">All actions</option>
         </select>
-        <button class="btn small" id="importJump" type="button">Import XML</button>
+        <button class="btn small" id="importBtn" type="button">Import Filters</button>
+        <button class="btn small danger" id="clearAllBtn" type="button">Clear all</button>
         <button class="btn small" id="copyXmlBtn" type="button">Copy XML</button>
         <button class="btn small blue" id="downloadBtn" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
@@ -341,20 +349,26 @@
         </div>
       </details>
 
-      <details class="card panel" id="importPanel">
-        <summary>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg>
-          Import filters you already have
-        </summary>
-        <div class="body">
-          <p class="note">Export your existing filters from Gmail (Settings → Filters and Blocked Addresses → Export), then bring the file here to see, reorder, edit, and re-export them. Imported filters are added to the list above.</p>
-          <textarea id="importText" placeholder="…or paste the XML here" spellcheck="false"></textarea>
-          <div class="row-btns">
-            <label class="file-label">Choose .xml file<input type="file" id="importFile" accept=".xml,text/xml,application/xml"></label>
-            <button class="btn" id="importPasteBtn" type="button">Import pasted XML</button>
-          </div>
-        </div>
-      </details>
+  <!-- IMPORT (modal dialog) -->
+  <dialog id="importDialog" class="import-dialog" aria-labelledby="importDialogTitle">
+    <div class="builder-head">
+      <h2 id="importDialogTitle">Import filters</h2>
+      <button class="icon-btn" id="importDialogClose" type="button" title="Close" aria-label="Close">✕</button>
+    </div>
+    <p class="sub">Bring in a Gmail filter export (<code>mailFilters.xml</code>) — from Settings → Filters and Blocked Addresses → Export. Imported filters are added to your list; the two starter examples are replaced when any filters come in. Duplicates are not detected, and entries the app can’t read are reported, not swallowed.</p>
+    <label class="drop-zone" id="importDropZone">
+      <span><b>Drop a .xml file here</b>, or click to browse</span>
+      <input type="file" id="importFile" accept=".xml,text/xml,application/xml">
+    </label>
+    <div class="field" style="margin-top:14px">
+      <label for="importText">Or paste the XML</label>
+      <textarea id="importText" placeholder="Paste Gmail filter XML here…" spellcheck="false"></textarea>
+    </div>
+    <div class="builder-actions">
+      <button class="btn primary" id="importPasteBtn" type="button">Import pasted XML</button>
+      <button class="btn" id="importCancelBtn" type="button">Cancel</button>
+    </div>
+  </dialog>
 
       <div class="section-head"><h2>Getting them into Gmail</h2></div>
       <div class="steps">
@@ -459,8 +473,10 @@
   }
   /**
    * Restore the working copy saved by saveFilters(). Returns true when
-   * at least one filter was restored, so the caller can skip the
-   * starter examples in that case.
+   * a saved list exists, so the caller can skip the starter examples.
+   * An intentionally emptied list (saved as []) counts as a save —
+   * clearing the list must survive a reload instead of re-seeding
+   * the starters.
    * @returns {boolean}
    */
   function loadSavedFilters() {
@@ -469,6 +485,7 @@
       if (!raw) return false;
       var saved = JSON.parse(raw);
       if (!Array.isArray(saved)) return false;
+      if (!saved.length) return true;
       var restored = 0;
       saved.forEach(function (f) {
         var nf = normalizeFilter(f); // drops malformed entries
@@ -888,6 +905,7 @@
     $("filterCount").innerHTML = "<b>" + exportableCount + "</b> / " + GMAIL_MAX_FILTERS + " filter" + (exportableCount === 1 ? "" : "s") + " in your export — drag to reorder";
     var visible = visibleFilters();
     $("actionCounts").textContent = actionCountsText();
+    $("clearAllBtn").disabled = !filters.length;
     if (!filters.length){
       var empty = document.createElement("div");
       empty.className = "empty-state";
@@ -1088,9 +1106,44 @@
   $("heroDownload").addEventListener("click", downloadXML);
   $("copyXmlBtn").addEventListener("click", copyXML);
   $("copyXmlBtn2").addEventListener("click", copyXML);
-  $("importJump").addEventListener("click", function(){
-    var p = $("importPanel"); p.open = true; p.scrollIntoView({behavior:"smooth", block:"center"});
+  /* ---------- Import dialog ---------- */
+  var importDialog = $("importDialog");
+  var importLastOpener = null;
+  function openImportDialog(opener){
+    importLastOpener = opener || document.activeElement;
+    if (typeof importDialog.showModal === "function") importDialog.showModal();
+    else importDialog.setAttribute("open", "");
+    var t = $("importText"); if (t) t.focus();
+  }
+  $("importBtn").addEventListener("click", function (e) { openImportDialog(e.currentTarget); });
+  $("importDialogClose").addEventListener("click", function () { importDialog.close(); });
+  $("importCancelBtn").addEventListener("click", function () { importDialog.close(); });
+  importDialog.addEventListener("click", function (e) {
+    if (e.target === importDialog) importDialog.close(); // backdrop click
   });
+  importDialog.addEventListener("close", function () {
+    if (importLastOpener && importLastOpener.focus) importLastOpener.focus();
+    importLastOpener = null;
+  });
+
+  /* ---------- Clear all ---------- */
+  // Always asks first — even when only the starter examples are left.
+  function clearAllFilters(){
+    if (!filters.length) return;
+    var real = exportableFilters().length;
+    var ok;
+    if (!real){
+      ok = window.confirm("Remove the " + filters.length + " starter example" + (filters.length === 1 ? "" : "s") + "? The list will be empty.");
+    } else {
+      ok = window.confirm("Clear all " + filters.length + " filter" + (filters.length === 1 ? "" : "s") + "? This can’t be undone — download the XML first if you want to keep them.");
+    }
+    if (!ok) return;
+    filters = [];
+    actionFilter = ""; $("actionFilter").value = "";
+    render();
+    showToast("List cleared.");
+  }
+  $("clearAllBtn").addEventListener("click", clearAllFilters);
 
   /* ---------- XML import ---------- */
   // Known Gmail filter properties. Anything else means the entry comes
@@ -1177,6 +1230,7 @@
       }
       parsed.filters.forEach(function(f){ filters.push(f); });
       render();
+      var d = $("importDialog"); if (d.open) d.close();
       var msg = "Imported " + parsed.filters.length + " filter" + (parsed.filters.length === 1 ? "" : "s") + ".";
       if (removedExamples) msg += " The starter example" + (removedExamples === 1 ? "" : "s") + " " + (removedExamples === 1 ? "was" : "were") + " removed.";
       if (parsed.skipped.length) {
@@ -1186,13 +1240,27 @@
       showToast(msg);
     } catch(e){ showToast(e.message || "Import failed — check the file and try again."); }
   }
+  function readImportFile(file){
+    var reader = new FileReader();
+    reader.onload = function(){ importXMLText(String(reader.result || "")); };
+    reader.onerror = function(){ showToast("Couldn’t read that file — try again."); };
+    reader.readAsText(file);
+  }
   $("importFile").addEventListener("change", function(){
     var file = this.files && this.files[0];
     if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function(){ importXMLText(String(reader.result || "")); };
-    reader.readAsText(file);
+    readImportFile(file);
     this.value = "";
+  });
+  var dropZone = $("importDropZone");
+  dropZone.addEventListener("dragover", function(e){ e.preventDefault(); dropZone.classList.add("drag-over"); });
+  dropZone.addEventListener("dragleave", function(){ dropZone.classList.remove("drag-over"); });
+  dropZone.addEventListener("drop", function(e){
+    e.preventDefault(); dropZone.classList.remove("drag-over");
+    var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!file) return;
+    if (!/\.xml$/i.test(file.name || "")){ showToast("That doesn’t look like an .xml file — drop a Gmail filter export."); return; }
+    readImportFile(file);
   });
   $("importPasteBtn").addEventListener("click", function(){
     var t = $("importText").value.trim();
@@ -1222,6 +1290,8 @@
       importXMLText: importXMLText, exportableFilters: exportableFilters,
       setActionFilter: function(k){ actionFilter = k; render(); },
       getVisibleFilters: function(){ return visibleFilters(); },
+      openImportDialog: openImportDialog, clearAllFilters: clearAllFilters,
+      getImportDialog: function(){ return importDialog; },
       getFilters: function () { return filters; },
       setFilters: function (list) { filters = list; render(); }
     };
