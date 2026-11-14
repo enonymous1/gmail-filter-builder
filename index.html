@@ -144,7 +144,8 @@
   .filter-card.dragging{opacity:.45}
   .filter-card.drop-target{border-color:var(--red);box-shadow:0 0 0 2px var(--red-soft)}
   .fc-top{display:flex;gap:10px;align-items:flex-start}
-  .order-num{font-size:12px;font-weight:700;color:var(--faint);font-variant-numeric:tabular-nums;min-width:20px;text-align:right;flex:none;padding-top:7px}
+  .fc-foot{display:flex;justify-content:flex-end;margin-top:10px}
+  .order-num{font-size:12px;font-weight:700;color:var(--faint);font-variant-numeric:tabular-nums}
   .drag-handle{cursor:grab;color:var(--faint);padding:6px 2px;flex:none;border-radius:6px}
   .drag-handle:active{cursor:grabbing}
   .drag-handle svg{width:16px;height:16px;display:block}
@@ -175,7 +176,8 @@
   .panel p.note{font-size:13.5px;color:var(--muted);line-height:1.6}
   .panel textarea{width:100%;border:1px solid var(--line);background:var(--input);color:var(--ink);border-radius:11px;padding:11px 13px;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;min-height:110px;resize:vertical}
   .row-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+  .step .opt{display:inline-block;font-size:11px;font-weight:700;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 7px;margin-left:5px;vertical-align:2px}
   .step{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
   .step .n{width:28px;height:28px;border-radius:50%;background:var(--red);color:#fff;font-weight:800;font-size:13px;display:grid;place-items:center;margin-bottom:9px}
   @media (prefers-color-scheme: dark){.step .n{color:#1b1e21}}
@@ -371,11 +373,12 @@
     </div>
   </dialog>
 
-      <div class="section-head"><h2>Getting them into Gmail</h2></div>
+      <div class="section-head"><h2>How the round trip works</h2></div>
       <div class="steps">
-        <div class="step"><div class="n">1</div><b>Download the file</b><p>Use the Download button above. You’ll get <code>gmail-filters.xml</code> with every filter in your list.</p></div>
-        <div class="step"><div class="n">2</div><b>Open Gmail settings</b><p>In Gmail on desktop: gear icon → <b>See all settings</b> → <b>Filters and Blocked Addresses</b> tab.</p></div>
-        <div class="step"><div class="n">3</div><b>Import &amp; create</b><p>Click <b>Import filters</b>, choose the file, then <b>Create filters</b>. Tick “Also apply filter to matching conversations” there if you want it to clean up mail you already have.</p></div>
+        <div class="step"><div class="n">1</div><b>Export your existing filters <span class="opt">Optional</span></b><p>Only if you want to start from filters you already have: in Gmail, Settings → <b>Filters and Blocked Addresses</b> → Export, then <b>Import Filters</b> here to see, reorder, edit, and add to them.</p></div>
+        <div class="step"><div class="n">2</div><b>Download the file</b><p>Use the Download button above. You’ll get <code>gmail-filters.xml</code> with every filter in your list.</p></div>
+        <div class="step"><div class="n">3</div><b>Open Gmail settings</b><p>In Gmail on desktop: gear icon → <b>See all settings</b> → <b>Filters and Blocked Addresses</b> tab.</p></div>
+        <div class="step"><div class="n">4</div><b>Import &amp; create</b><p>Click <b>Import filters</b>, choose the file, then <b>Create filters</b>. Tick “Also apply filter to matching conversations” there if you want it to clean up mail you already have.</p></div>
       </div>
     </div>
   </div>
@@ -930,9 +933,7 @@
       var card = document.createElement("article");
       card.className = "filter-card"; card.draggable = true; card.dataset.id = f.id;
       var top = document.createElement("div"); top.className = "fc-top";
-      var order = filters.indexOf(f) + 1; // position in the full list = export order
-      top.innerHTML = '<span class="order-num" title="Position in your export">' + order + '</span>' +
-        '<span class="drag-handle" title="Drag to reorder">' + grip + '</span>' +
+      top.innerHTML = '<span class="drag-handle" title="Drag to reorder">' + grip + '</span>' +
         '<div class="fc-title"><h3></h3><div class="fc-search"></div></div>' +
         '<div class="fc-btns">' +
           '<button class="icon-btn" data-act="edit" title="Edit" aria-label="Edit filter">' + ICON_EDIT + '</button>' +
@@ -955,6 +956,13 @@
       ac.innerHTML = '<span class="clabel">Then</span>';
       actionChips(f).forEach(function(t){ var s = document.createElement("span"); s.className = "chip act"; s.textContent = t; ac.appendChild(s); });
       card.appendChild(ac);
+
+      // Position in the full list = export order, anchored bottom-right
+      // so the drag handle stays alone at the top left.
+      var order = filters.indexOf(f) + 1;
+      var foot = document.createElement("div"); foot.className = "fc-foot";
+      foot.innerHTML = '<span class="order-num" title="Position in your export">#' + order + '</span>';
+      card.appendChild(foot);
 
       top.querySelector('[data-act="edit"]').addEventListener("click", function (e) {
         openEditFilter(f, e.currentTarget);
