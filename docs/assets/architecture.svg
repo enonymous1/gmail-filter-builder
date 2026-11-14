@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="470" viewBox="0 0 880 470" role="img" aria-labelledby="archTitle archDesc">
+  <title id="archTitle">Gmail Filter Builder — data flow</title>
+  <desc id="archDesc">Builder UI and Gmail export both read and write the same in-memory filter list. Export serializes it to Gmail's Atom XML; import parses that XML back into filters. No server, no storage.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1a73e8"/>
+    </marker>
+    <marker id="arrowBack" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#188038"/>
+    </marker>
+  </defs>
+  <rect width="880" height="470" fill="#ffffff"/>
+  <text x="440" y="30" text-anchor="middle" font-family="sans-serif" font-size="17" font-weight="700" fill="#191c1f">Gmail Filter Builder — data flow</text>
+  <text x="440" y="50" text-anchor="middle" font-family="sans-serif" font-size="12.5" fill="#6d7278">One static file. The in-memory filter list is the single source of truth; nothing is stored or sent to a server.</text>
+
+  <!-- Builder UI -->
+  <rect x="30" y="80" width="200" height="150" rx="12" fill="#e8f0fe" stroke="#1a73e8" stroke-width="1.5"/>
+  <text x="130" y="106" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="700" fill="#191c1f">Builder UI</text>
+  <text x="130" y="128" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">palette blocks</text>
+  <text x="130" y="147" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">templates</text>
+  <text x="130" y="166" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">form + live preview</text>
+  <text x="130" y="185" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">filter cards (reorder)</text>
+  <text x="130" y="210" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">readBuilder() / render()</text>
+
+  <!-- Model -->
+  <rect x="330" y="80" width="220" height="150" rx="12" fill="#fef7e0" stroke="#b06000" stroke-width="1.5"/>
+  <text x="440" y="106" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="700" fill="#191c1f">Filter[] model</text>
+  <text x="440" y="128" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">in-memory only</text>
+  <text x="440" y="147" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">{ id, name, from, to, … }</text>
+  <text x="440" y="166" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">{ sizeOp, sizeVal, … }</text>
+  <text x="440" y="185" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">actions: { skip, label, … }</text>
+  <text x="440" y="210" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#b06000">no persistence yet — see review</text>
+
+  <!-- Export -->
+  <rect x="650" y="80" width="200" height="150" rx="12" fill="#e6f4ea" stroke="#188038" stroke-width="1.5"/>
+  <text x="750" y="106" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="700" fill="#191c1f">Export</text>
+  <text x="750" y="128" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">buildXML() + escXml()</text>
+  <text x="750" y="147" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">gmail-filters.xml</text>
+  <text x="750" y="166" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">Atom feed, apps:property</text>
+  <text x="750" y="185" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">Blob download / clipboard</text>
+  <text x="750" y="210" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">→ Gmail Import filters</text>
+
+  <!-- Arrows top row -->
+  <line x1="230" y1="140" x2="325" y2="140" stroke="#1a73e8" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="278" y="128" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#1a73e8">edit</text>
+  <line x1="555" y1="140" x2="645" y2="140" stroke="#188038" stroke-width="2" marker-end="url(#arrowBack)"/>
+  <text x="600" y="128" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#188038">serialize</text>
+  <line x1="325" y1="180" x2="230" y2="180" stroke="#1a73e8" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="278" y="200" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#1a73e8">render</text>
+
+  <!-- Import row -->
+  <rect x="30" y="280" width="200" height="130" rx="12" fill="#fce8e6" stroke="#d93025" stroke-width="1.5"/>
+  <text x="130" y="306" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="700" fill="#191c1f">Gmail export</text>
+  <text x="130" y="328" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">mailFilters.xml</text>
+  <text x="130" y="347" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">file picker or paste</text>
+  <text x="130" y="366" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">Settings → Export</text>
+
+  <rect x="330" y="280" width="220" height="130" rx="12" fill="#ffffff" stroke="#9aa0a6" stroke-width="1.5"/>
+  <text x="440" y="306" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="700" fill="#191c1f">Import</text>
+  <text x="440" y="328" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">parseFiltersFromXML()</text>
+  <text x="440" y="347" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">DOMParser, reverse mapping</text>
+  <text x="440" y="366" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">skipped entries: not reported</text>
+  <text x="440" y="385" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#d93025">multi-label + excludeChats lost</text>
+
+  <rect x="650" y="280" width="200" height="130" rx="12" fill="#f1eee6" stroke="#6d7278" stroke-width="1.5"/>
+  <text x="750" y="306" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="700" fill="#191c1f">Gmail</text>
+  <text x="750" y="328" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">Settings → Filters and</text>
+  <text x="750" y="347" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">Blocked Addresses</text>
+  <text x="750" y="366" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">Import filters (new IDs)</text>
+  <text x="750" y="385" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">limit: 1,000 filters</text>
+
+  <line x1="230" y1="345" x2="325" y2="345" stroke="#188038" stroke-width="2" marker-end="url(#arrowBack)"/>
+  <text x="278" y="333" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#188038">parse</text>
+  <line x1="440" y1="230" x2="440" y2="275" stroke="#b06000" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="452" y="258" font-family="sans-serif" font-size="11" fill="#b06000">imported filters join the list</text>
+
+  <text x="440" y="445" text-anchor="middle" font-family="sans-serif" font-size="12.5" fill="#6d7278">External requests: Google Fonts stylesheet only (falls back to system fonts offline). No analytics, no backend, no storage.</text>
+</svg>
