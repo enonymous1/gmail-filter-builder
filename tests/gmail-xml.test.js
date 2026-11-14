@@ -260,6 +260,26 @@ test("the 1,000 limit counts exportable filters only", () => {
   assert.equal(app.validateFilter(mk({}), true).filter((m) => /limit/.test(m)).length, 0);
 });
 
+test("action counts and filter narrow the view, never the export", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  // Fresh page: the two starters drive the counts (examples included).
+  assert.match(doc.getElementById("actionCounts").textContent, /Skip the Inbox 1/);
+  assert.match(doc.getElementById("actionCounts").textContent, /Apply a label 2/);
+  const mk = (actions) => app.normalizeFilter({ from: "a@b.c", actions });
+  app.setFilters([mk({ skip: true }), mk({ star: true }), mk({ skip: true, label: "X" })]);
+  assert.match(doc.getElementById("actionCounts").textContent, /Skip the Inbox 2 · Star it 1 · Apply a label 1/);
+  app.setActionFilter("star");
+  assert.equal(app.getVisibleFilters().length, 1);
+  assert.match(doc.getElementById("actionCounts").textContent, /showing 1 of 3/);
+  assert.equal(app.buildXML().match(/<entry>/g).length, 3);
+  app.setActionFilter("trash");
+  assert.equal(app.getVisibleFilters().length, 0);
+  assert.match(doc.getElementById("actionCounts").textContent, /showing 0 of 3/);
+  app.setActionFilter("");
+  assert.equal(app.getVisibleFilters().length, 3);
+});
+
 test("modal: closing with unsaved changes asks first; clean close needs no prompt", () => {
   const app = runApp(makeStorage());
   const doc = app._document;
