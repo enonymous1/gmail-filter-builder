@@ -132,7 +132,12 @@
   .toolbar .count{font-size:14px;color:var(--muted);margin-right:auto}
   .toolbar .count b{color:var(--ink)}
   .filter-select{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:9px;padding:7px 8px;font:inherit;font-size:13px;max-width:200px}
-  .action-counts{font-size:12.5px;color:var(--muted);margin:0 2px 12px;min-height:16px}
+  .action-counts{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 2px 12px;min-height:28px}
+  .action-counts:empty{display:none}
+  .count-pill{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:4px 11px;font:inherit;font-size:12.5px;cursor:pointer}
+  .count-pill:hover{border-color:var(--faint)}
+  .count-pill[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  .action-counts .showing{font-size:12.5px;color:var(--muted);margin-left:2px}
   /* Two-column filter list on wide displays — cards are half the width,
      so the page stops being one tall stack with empty space beside it. */
   @media (min-width:900px){
@@ -888,17 +893,38 @@
     return filters.filter(function(f){ return !!f.actions[actionFilter]; });
   }
   function shortActionLabel(a){ return a.label.replace(/\s*\([^)]*\)\s*$/, ""); }
-  function actionCountsText(){
+  function actionCounts(){
     var counts = {};
     ACTIONS.forEach(function(a){ counts[a.key] = 0; });
     filters.forEach(function(f){ ACTIONS.forEach(function(a){ if (f.actions[a.key]) counts[a.key]++; }); });
-    var parts = [];
-    ACTIONS.forEach(function(a){ if (counts[a.key]) parts.push(shortActionLabel(a) + " " + counts[a.key]); });
-    var text = parts.join(" · ");
+    return counts;
+  }
+  // The counts are pills, not text: tapping one filters the list to
+  // that action, tapping the active one again clears it. Same view-only
+  // filter the dropdown sets — both stay in sync through render().
+  function renderActionCounts(){
+    var box = $("actionCounts");
+    box.innerHTML = "";
+    var counts = actionCounts();
+    ACTIONS.forEach(function(a){
+      if (!counts[a.key]) return;
+      var p = document.createElement("button");
+      p.type = "button"; p.className = "count-pill";
+      p.textContent = shortActionLabel(a) + " " + counts[a.key];
+      var active = actionFilter === a.key;
+      p.setAttribute("aria-pressed", active ? "true" : "false");
+      p.title = active ? "Click to show all actions" : "Click to show only filters with this action";
+      p.addEventListener("click", function(){
+        actionFilter = (actionFilter === a.key) ? "" : a.key;
+        render();
+      });
+      box.appendChild(p);
+    });
     if (actionFilter && filters.length){
-      text += (text ? " — " : "") + "showing " + visibleFilters().length + " of " + filters.length;
+      var s = document.createElement("span"); s.className = "showing";
+      s.textContent = "showing " + visibleFilters().length + " of " + filters.length;
+      box.appendChild(s);
     }
-    return text;
   }
   function render(){
     var list = $("filterList");
@@ -906,7 +932,8 @@
     var exportableCount = exportableFilters().length;
     $("filterCount").innerHTML = "<b>" + exportableCount + "</b> / " + GMAIL_MAX_FILTERS + " filter" + (exportableCount === 1 ? "" : "s") + " in your export — drag to reorder";
     var visible = visibleFilters();
-    $("actionCounts").textContent = actionCountsText();
+    renderActionCounts();
+    $("actionFilter").value = actionFilter;
     $("clearAllBtn").disabled = !filters.length;
     if (!filters.length){
       var empty = document.createElement("div");

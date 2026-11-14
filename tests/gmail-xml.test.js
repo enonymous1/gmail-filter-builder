@@ -263,21 +263,54 @@ test("the 1,000 limit counts exportable filters only", () => {
 test("action counts and filter narrow the view, never the export", () => {
   const app = runApp(makeStorage());
   const doc = app._document;
+  const box = doc.getElementById("actionCounts");
+  // The stub DOM keeps every pill render() ever appended, so the newest
+  // render's pills are the tail of the button children.
+  const latestPills = (n) => box.children.filter((c) => c.tagName === "BUTTON").slice(-n);
+  const pillText = (n) => latestPills(n).map((c) => c.textContent).join(" · ");
+  const latestShowing = () => {
+    const spans = box.children.filter((c) => c.tagName === "SPAN");
+    return spans.length ? spans[spans.length - 1].textContent : "";
+  };
   // Fresh page: the five starters drive the counts (examples included).
-  assert.match(doc.getElementById("actionCounts").textContent, /Skip the Inbox 2/);
-  assert.match(doc.getElementById("actionCounts").textContent, /Apply a label 3/);
+  assert.match(pillText(7), /Skip the Inbox 2 · Mark as read 2 · Star it 3 · Apply a label 3/);
   const mk = (actions) => app.normalizeFilter({ from: "a@b.c", actions });
   app.setFilters([mk({ skip: true }), mk({ star: true }), mk({ skip: true, label: "X" })]);
-  assert.match(doc.getElementById("actionCounts").textContent, /Skip the Inbox 2 · Star it 1 · Apply a label 1/);
+  assert.match(pillText(3), /Skip the Inbox 2 · Star it 1 · Apply a label 1/);
   app.setActionFilter("star");
   assert.equal(app.getVisibleFilters().length, 1);
-  assert.match(doc.getElementById("actionCounts").textContent, /showing 1 of 3/);
+  assert.match(latestShowing(), /showing 1 of 3/);
   assert.equal(app.buildXML().match(/<entry>/g).length, 3);
   app.setActionFilter("trash");
   assert.equal(app.getVisibleFilters().length, 0);
-  assert.match(doc.getElementById("actionCounts").textContent, /showing 0 of 3/);
+  assert.match(latestShowing(), /showing 0 of 3/);
   app.setActionFilter("");
   assert.equal(app.getVisibleFilters().length, 3);
+});
+
+test("action count pills set and clear the view filter", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const box = doc.getElementById("actionCounts");
+  // Newest pill with a given label (the stub keeps every render's pills).
+  const findPill = (label) => {
+    for (let i = box.children.length - 1; i >= 0; i--) {
+      const c = box.children[i];
+      if (c.tagName === "BUTTON" && c.textContent.startsWith(label)) return c;
+    }
+    return null;
+  };
+  const star = findPill("Star it");
+  assert.ok(star);
+  assert.equal(star.getAttribute("aria-pressed"), "false");
+  star._listeners.click[0]();
+  assert.equal(app.getVisibleFilters().length, 3);
+  assert.equal(doc.getElementById("actionFilter").value, "star");
+  assert.equal(findPill("Star it").getAttribute("aria-pressed"), "true");
+  // Clicking the active pill again clears the filter.
+  findPill("Star it")._listeners.click[0]();
+  assert.equal(app.getVisibleFilters().length, 5);
+  assert.equal(doc.getElementById("actionFilter").value, "");
 });
 
 test("modal: closing with unsaved changes asks first; clean close needs no prompt", () => {
