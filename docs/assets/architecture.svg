@@ -16,7 +16,7 @@
   <!-- Builder UI -->
   <rect x="30" y="80" width="200" height="150" rx="12" fill="#e8f0fe" stroke="#1a73e8" stroke-width="1.5"/>
   <text x="130" y="106" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="700" fill="#191c1f">Builder UI</text>
-  <text x="130" y="128" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">palette blocks</text>
+  <text x="130" y="128" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">match fields + actions</text>
   <text x="130" y="147" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">templates</text>
   <text x="130" y="166" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">form + live preview</text>
   <text x="130" y="185" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3c4043">filter cards (reorder)</text>

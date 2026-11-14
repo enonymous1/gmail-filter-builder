@@ -89,10 +89,6 @@
     .builder-grid .grid2{grid-template-columns:1fr}
   }
   .builder .sub{color:var(--muted);font-size:13.5px;line-height:1.55;margin:0 0 16px}
-  .palette{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:18px}
-  .palette-label{width:100%;font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:1px}
-  .block{border:1.5px dashed color-mix(in srgb,var(--faint) 55%,transparent);background:var(--surface2);color:var(--ink);border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;gap:6px;align-items:center;min-height:36px}
-  .block.action{border-style:solid;border-color:var(--line);background:var(--blue-soft);color:var(--ink)}
   fieldset{border:0;padding:0;margin:0 0 18px}
   legend{font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);padding:0;margin-bottom:10px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -102,7 +98,6 @@
   .field input[type=text],.field input[type=email],.field input[type=number],.field select,.field textarea{
     width:100%;border:1px solid var(--line);background:var(--input);color:var(--ink);border-radius:10px;padding:9px 12px;font:inherit;font-size:14.5px;outline:none}
   .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
-  .field.flash input{border-color:var(--red);box-shadow:0 0 0 3px var(--red-soft)}
   .field .hint{font-size:12px;color:var(--faint);line-height:1.45}
   .size-row{display:grid;grid-template-columns:1.15fr .8fr .8fr;gap:8px}
   .checkrow{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--line2);border-radius:11px;margin-bottom:8px;cursor:pointer;background:var(--surface)}
@@ -197,8 +192,8 @@
   <!-- HERO -->
   <div class="hero">
     <div class="hero-main">
-      <h1>Gmail filters, built by <em>tapping blocks</em> — not decoding Settings.</h1>
-      <p>Assemble a filter from matching rules and actions, stack up as many as you need, then download one file and import it straight into Gmail. Everything happens in this page — no account, no sign-in.</p>
+      <h1>Gmail filters, <em>filled out</em> — not decoded from Settings.</h1>
+      <p>Fill in what a message matches, check off what Gmail should do with it, and stack up as many filters as you need. Then download one file and import it straight into Gmail. Everything happens in this page — no account, no sign-in.</p>
       <div class="hero-actions">
         <button class="btn primary" id="heroNew" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -236,12 +231,7 @@
         <h2 id="builderTitle">New filter</h2>
         <button class="icon-btn" id="dialogClose" type="button" title="Close" aria-label="Close">✕</button>
       </div>
-      <p class="sub">Tap a block to jump to that piece. Fill in at least one match and one action.</p>
-
-      <div class="palette" id="palette">
-        <span class="palette-label">Match blocks · tap to jump</span>
-        <!-- injected -->
-      </div>
+      <p class="sub">Fill in at least one match and one action.</p>
 
       <div class="error" id="formError" role="alert"></div>
 
@@ -499,20 +489,6 @@
   ];
   var ACTION_BY_KEY = {}; ACTIONS.forEach(function(a){ ACTION_BY_KEY[a.key]=a; });
 
-  /* ---------- Palette blocks ---------- */
-  var BLOCKS = [
-    {label:"From", field:"from", input:"fFrom"},
-    {label:"To", field:"to", input:"fTo"},
-    {label:"Subject", field:"subject", input:"fSubject"},
-    {label:"Has the words", field:"has", input:"fHas"},
-    {label:"Doesn’t have", field:"hasnot", input:"fHasNot"},
-    {label:"Size", field:"size", input:"fSizeVal"},
-    {label:"★ Star it", action:"star"},
-    {label:"Skip Inbox", action:"skip"},
-    {label:"Apply label", action:"label"},
-    {label:"Delete it", action:"trash"}
-  ];
-
   /* ---------- Templates ---------- */
   var TEMPLATES = [
     {name:"Newsletters → archive", desc:"Anything with “unsubscribe” skips the inbox and gets filed away.", color:"", icon:"mail",
@@ -594,34 +570,9 @@
     filters.push(mkFilter({name:"Receipts", has:"(receipt OR invoice)", actions:{label:"Finance/Receipts"}}, true));
   }
 
-  /* ---------- Build palette ---------- */
+  /* ---------- Card drag handle ---------- */
+  // The grip icon lives only on filter cards now (drag to reorder).
   var grip = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
-  BLOCKS.forEach(function(b){
-    var el = document.createElement("button");
-    el.type = "button";
-    el.className = "block" + (b.action ? " action" : "");
-    el.innerHTML = "<span></span>";
-    el.querySelector("span").textContent = b.label;
-    el.addEventListener("click", function(){ activateBlock(b); });
-    $("palette").appendChild(el);
-  });
-
-  function activateBlock(b){
-    if (b.action){
-      var cb = $("a_" + b.action);
-      if (cb && !cb.checked){ cb.checked = true; cb.dispatchEvent(new Event("change")); }
-      if (cb) cb.closest(".checkrow").scrollIntoView({block:"nearest", behavior:"smooth"});
-    } else {
-      var field = document.querySelector('[data-field="'+b.field+'"]');
-      var input = $(b.input);
-      if (field){ field.classList.remove("flash"); void field.offsetWidth; field.classList.add("flash"); setTimeout(function(){ field.classList.remove("flash"); }, 1600); }
-      if (input){ input.focus({preventScroll:false}); }
-    }
-    updatePreview();
-  }
-
-  /* Palette blocks are tap-to-jump only — no drag handling here.
-     (Filter-card reorder drag lives in render().) */
 
   /* ---------- Build action checkrows ---------- */
   var actionsList = $("actionsList");

@@ -1,14 +1,14 @@
 # Gmail Filter Builder
 
-Build Gmail filters by tapping blocks — no account, no sign-in, no server. Assemble match rules and actions in your browser, then download one file and import it straight into Gmail.
+Build Gmail filters by filling in a form — no account, no sign-in, no server. Fill in what a message matches, check off what Gmail should do with it, then download one file and import it straight into Gmail.
 
 **Live site:** https://enonymous1.github.io/gmail-filter-builder/
 
 <!-- SCREENSHOT 1 — docs/assets/hero.png (1280×720, light theme)
      Place here, directly under the description above. Must show: the hero
-     headline, the five template cards, the builder on the left with the
-     Newsletters template loaded, and two filter cards in the list on the
-     right. Capture at 1280×720 from the live site; do not mock it.
+     headline, the five template cards, the builder dialog open with the
+     Newsletters template loaded, and two filter cards in the list.
+     Capture at 1280×720 from the live site; do not mock it.
      Replace this comment with: ![Gmail Filter Builder — hero, templates, builder, and filter list](docs/assets/hero.png) -->
 
 ## Description
@@ -21,7 +21,7 @@ Everything runs locally in your browser. There is no backend, no account, and no
 
 ### Features
 
-- Tap-to-jump match blocks (From, To, Subject, Has / Doesn't have words, Size, Has attachment) and action blocks (Star it, Skip Inbox, Apply a label, Delete it) — tap one to jump to that field
+- Match fields (From, To, Subject, Has / Doesn't have words, Size, Has attachment) and action checkboxes (Skip the Inbox, Mark as read, Star it, Apply a label, Categorize as, Forward it to, Delete it, Never send to Spam, Always / Never mark as important)
 - Five one-tap templates: Newsletters, Receipts & invoices, Social notifications, Big attachments, VIP sender
 - Live Gmail-search preview for the filter you are building (`from:(…) subject:(…) larger:10M …`)
 - Filter list with drag-to-reorder, edit, duplicate, and delete
