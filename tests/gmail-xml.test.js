@@ -425,3 +425,12 @@ test("clear all asks first — even for only starters — and a cleared list sta
   app2.clearAllFilters();
   assert.equal(app2.getFilters().length, 0);
 });
+
+test("step titles are the only block bold in a step card", () => {
+  const html = fs.readFileSync(INDEX, "utf8");
+  // The title rule must target the direct-child <b> only: a plain
+  // ".step b" selector also turns the bold phrases inside the step
+  // text into blocks, stranding their punctuation at line starts.
+  assert.match(html, /\.step > b\{/);
+  assert.doesNotMatch(html, /\.step b\{/);
+});
