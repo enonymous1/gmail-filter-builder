@@ -753,7 +753,7 @@
       problems.push("Size must be a whole number of " + (SIZE_UNITS[f.sizeUnit] || SIZE_UNITS.s_smb).label + ".");
     else if (f.sizeOp && parseInt(f.sizeVal, 10) < 1)
       problems.push("Size must be at least 1.");
-    if (isNew && filters.length >= GMAIL_MAX_FILTERS)
+    if (isNew && exportableFilters().length >= GMAIL_MAX_FILTERS)
       problems.push("You’re at Gmail’s " + GMAIL_MAX_FILTERS + "-filter limit — remove one before adding another.");
     return problems;
   }
@@ -810,7 +810,7 @@
       showToast("Filter updated.");
     } else {
       f.example = false; filters.push(f);
-      showToast("Filter added — " + filters.length + " in your export.");
+      showToast("Filter added — " + exportableFilters().length + " in your export.");
     }
     clearBuilder(); render(); dialog.close();
   });
@@ -851,7 +851,8 @@
   function render(){
     var list = $("filterList");
     list.innerHTML = "";
-    $("filterCount").innerHTML = "<b>" + filters.length + "</b> / " + GMAIL_MAX_FILTERS + " filter" + (filters.length === 1 ? "" : "s") + " in your export — drag to reorder";
+    var exportableCount = exportableFilters().length;
+    $("filterCount").innerHTML = "<b>" + exportableCount + "</b> / " + GMAIL_MAX_FILTERS + " filter" + (exportableCount === 1 ? "" : "s") + " in your export — drag to reorder";
     if (!filters.length){
       var empty = document.createElement("div");
       empty.className = "empty-state";
@@ -980,6 +981,9 @@
     if (a.neverimp) p.push(["shouldNeverMarkAsImportant", "true"]);
     return p;
   }
+  // Starter examples are demo data only: they show in the list, but they
+  // never count toward the export, the 1,000 limit, or the XML file.
+  function exportableFilters(){ return filters.filter(function(f){ return !f.example; }); }
   function buildXML(){
     var now = new Date().toISOString().replace(/\.\d+Z$/, "Z");
     var lines = [];
@@ -988,7 +992,7 @@
     lines.push("  <title>Mail Filters</title>");
     lines.push("  <id>" + GMAIL_FEED_ID + "</id>");
     lines.push("  <updated>" + now + "</updated>");
-    filters.forEach(function(f, i){
+    exportableFilters().forEach(function(f, i){
       lines.push("  <entry>");
       lines.push('    <category term="filter"></category>');
       lines.push("    <title>Mail Filter</title>");
@@ -1004,7 +1008,7 @@
     return lines.join("\n");
   }
   function downloadXML(){
-    if (!filters.length){ showToast("Add at least one filter first — there’s nothing to export yet."); return; }
+    if (!exportableFilters().length){ showToast("Add at least one filter first — there’s nothing to export yet."); return; }
     var blob = new Blob([buildXML()], {type:"text/xml;charset=utf-8"});
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
@@ -1014,7 +1018,7 @@
     showToast("Downloaded gmail-filters.xml — import it from Gmail’s Filters settings.");
   }
   function copyXML(){
-    if (!filters.length){ showToast("Add at least one filter first — there’s nothing to copy yet."); return; }
+    if (!exportableFilters().length){ showToast("Add at least one filter first — there’s nothing to copy yet."); return; }
     var text = buildXML();
     function done(){ showToast("XML copied — paste it into a .xml file, or straight into the import box below."); }
     if (navigator.clipboard && navigator.clipboard.writeText){
@@ -1113,9 +1117,17 @@
     try {
       var parsed = parseFiltersFromXML(text);
       if (!parsed.filters.length && !parsed.skipped.length){ showToast("No filters found in that file."); return; }
+      var removedExamples = 0;
+      if (parsed.filters.length){
+        // The starter examples are demo data: importing real filters
+        // replaces them. A file that brings nothing leaves them in place.
+        removedExamples = filters.filter(function(f){ return f.example; }).length;
+        filters = filters.filter(function(f){ return !f.example; });
+      }
       parsed.filters.forEach(function(f){ filters.push(f); });
       render();
       var msg = "Imported " + parsed.filters.length + " filter" + (parsed.filters.length === 1 ? "" : "s") + ".";
+      if (removedExamples) msg += " The starter example" + (removedExamples === 1 ? "" : "s") + " " + (removedExamples === 1 ? "was" : "were") + " removed.";
       if (parsed.skipped.length) {
         msg += " " + parsed.skipped.length + " skipped (" + parsed.skipped.map(function (s) { return "#" + s.entry + ": " + s.reason; }).join("; ") + ").";
         if (typeof console !== "undefined" && console.warn) console.warn("Skipped filter entries on import:", parsed.skipped);
@@ -1156,6 +1168,7 @@
       openDialog: openDialog, openNewFilter: openNewFilter,
       openEditFilter: openEditFilter, requestCloseDialog: requestCloseDialog,
       isDialogDirty: isDialogDirty, getDialog: function () { return dialog; },
+      importXMLText: importXMLText, exportableFilters: exportableFilters,
       getFilters: function () { return filters; },
       setFilters: function (list) { filters = list; render(); }
     };

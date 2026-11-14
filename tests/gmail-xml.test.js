@@ -225,6 +225,41 @@ test("modal: New filter opens a clean dialog; Edit loads the filter into it", ()
   assert.equal(doc.getElementById("fFrom").value, "");
 });
 
+test("examples never export; import replaces them only when it brings filters", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  // Fresh page: only the two starters, and the export is empty.
+  assert.equal(app.getFilters().length, 2);
+  assert.equal(app.exportableFilters().length, 0);
+  assert.equal(app.buildXML().match(/<entry>/g)?.length || 0, 0);
+  assert.match(doc.getElementById("filterCount").innerHTML, /<b>0<\/b> \/ 1000/);
+  // Import one real filter: the starters go, the real one stays.
+  app.importXMLText(GMAIL_XML(`
+<entry><category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:1</id><updated>2026-11-13T00:00:00Z</updated><content/>
+<apps:property name="from" value="real@example.com"/><apps:property name="shouldArchive" value="true"/></entry>`));
+  assert.equal(app.getFilters().length, 1);
+  assert.equal(app.getFilters()[0].from, "real@example.com");
+  assert.equal(app.exportableFilters().length, 1);
+  assert.equal(app.buildXML().match(/<entry>/g)?.length || 0, 1);
+  assert.match(doc.getElementById("filterCount").innerHTML, /<b>1<\/b> \/ 1000/);
+  // Importing a file that brings nothing leaves the starters in place.
+  const app2 = runApp(makeStorage());
+  app2.importXMLText(GMAIL_XML(`
+<entry><category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:1</id><updated>2026-11-13T00:00:00Z</updated><content/>
+<apps:property name="bogusProp" value="x"/></entry>`));
+  assert.equal(app2.getFilters().length, 2);
+  assert.equal(app2.exportableFilters().length, 0);
+});
+
+test("the 1,000 limit counts exportable filters only", () => {
+  const app = runApp(makeStorage());
+  const mk = (o) => app.normalizeFilter({ from: "a@b.c", actions: { star: true }, ...o });
+  const examples = Array.from({ length: 1000 }, (_, i) =>
+    app.normalizeFilter({ name: "E" + i, from: "a" + i + "@example.com", actions: { star: true }, example: true }));
+  app.setFilters(examples);
+  assert.equal(app.validateFilter(mk({}), true).filter((m) => /limit/.test(m)).length, 0);
+});
+
 test("modal: closing with unsaved changes asks first; clean close needs no prompt", () => {
   const app = runApp(makeStorage());
   const doc = app._document;

@@ -17,12 +17,13 @@ Gmail's filter settings are a wall of small text fields. This app turns them int
 
 The export uses Gmail's own filter format — an Atom feed with one `<entry>` per filter and `apps:property` entries for each criterion and action (for example `shouldArchive` for Skip the Inbox, and `size` + `sizeOperator` + `sizeUnit` for a size condition). That is the exact format Gmail produces under **Export filters** and accepts under **Import filters**, so a file from this app imports cleanly and can be re-exported later. The app can also read a Gmail export back in, so you can edit your existing filters here and re-export them.
 
-Everything runs locally in your browser. There is no backend, no account, and no data sent anywhere. Filters live only in the page while it is open — close the tab and the list is gone, so download your file when you are happy with it.
+Everything runs locally in your browser. There is no backend, no account, and no data sent anywhere. Filters autosave to this browser and survive refreshes, so the list is still there when you come back — the XML download is still the durable copy.
 
 ### Features
 
 - Match fields (From, To, Subject, Has / Doesn't have words, Size, Has attachment) and action checkboxes (Skip the Inbox, Mark as read, Star it, Apply a label, Categorize as, Forward it to, Delete it, Never send to Spam, Always / Never mark as important)
 - Five one-tap templates: Newsletters, Receipts & invoices, Social notifications, Big attachments, VIP sender
+- Two starter examples (Newsletters, Receipts) show the shape of a filter — they are demo data only: importing your own filters replaces them, and they are never written to an export
 - Live Gmail-search preview for the filter you are building (`from:(…) subject:(…) larger:10M …`)
 - Filter list with drag-to-reorder, edit, duplicate, and delete
 - Export as `gmail-filters.xml` (download or copy to clipboard), with a live XML preview
@@ -92,17 +93,17 @@ python3 -m http.server 8000
 # then open http://localhost:8000/
 ```
 
-There is no build and no watcher. There is a test runner: the Gmail XML contract, validation, persistence, and search-query code are covered by `tests/gmail-xml.test.js` (Node's built-in runner, zero dependencies), which executes the real script from `index.html` in a stub DOM via the `window.__gmailFilterBuilder` test seam. Run it before committing:
+There is no build and no watcher. There is a test runner: the Gmail XML contract, validation, persistence, search-query, and dialog code are covered by `tests/gmail-xml.test.js` (Node's built-in runner, zero dependencies), which executes the real script from `index.html` in a stub DOM via the `window.__gmailFilterBuilder` test seam. Run it before committing:
 
 ```sh
 node --test tests/gmail-xml.test.js
 ```
 
-CI runs the same command on every push and pull request (`.github/workflows/test.yml`). Edit `index.html`, refresh the browser, and check the change — and run the tests whenever you touch `propsFor()`, `parseFiltersFromXML()`, `validateFilter()`, or the filter model. The remaining architectural weakness the staff review calls out is that the app is one ~1,000-line file with no modules and no types, so the review proposes splitting it into modules before the next feature lands.
+CI runs the same command on every push and pull request (`.github/workflows/test.yml`). Edit `index.html`, refresh the browser, and check the change — and run the tests whenever you touch `propsFor()`, `parseFiltersFromXML()`, `validateFilter()`, or the filter model. The remaining architectural weakness the staff review calls out is that the app is one ~1,200-line file with no modules and no types, so the review proposes splitting it into modules before the next feature lands.
 
-### Manual smoke checklist (until tests exist)
+### Manual smoke checklist
 
-1. Load the **Newsletters** template, tap **Add filter** — a third card appears and the XML preview regenerates.
+1. Load the **Newsletters** template (the builder dialog opens), tap **Add filter** — the dialog closes, a third card appears, and the XML preview regenerates.
 2. Drag a filter card above another — the order changes and the XML entry order follows it.
 3. Click **Download .xml** — the file contains `<feed xmlns="http://www.w3.org/2005/Atom">`, `<title>Mail Filters</title>`, and `shouldArchive` (not `shouldSkipArchive`) for a Skip-Inbox filter.
 4. Import that same file back via **Import XML** — the filters reappear with Skip Inbox and size intact.
@@ -155,7 +156,7 @@ Import creates new filters — it does not overwrite your existing ones. Try it 
 
 ### Import existing filters into the app
 
-Export your current filters from Gmail (same tab → **Export**), then in the app open **Import filters you already have** and either choose the `.xml` file or paste the XML. Imported filters are added to your list, where you can reorder, edit, and re-export them. Two filters with the same match are kept as-is — the app does not de-duplicate yet.
+Export your current filters from Gmail (same tab → **Export**), then in the app open **Import filters you already have** and either choose the `.xml` file or paste the XML. Imported filters are added to your list, where you can reorder, edit, and re-export them. Importing replaces the two starter examples if they are still there — they are demo data and never appear in an export. Two filters with the same match are kept as-is — the app does not de-duplicate yet.
 
 ## Architecture
 
@@ -163,7 +164,7 @@ The app is deliberately boring: one static file, no framework, no backend. The d
 
 ![Data flow: builder UI and Gmail export both read and write the same in-memory filter list; export serializes it to Gmail's Atom XML, import parses that XML back into filters. No server, no storage.](docs/assets/architecture.svg)
 
-- **Model:** an array of plain filter objects (`{ id, name, from, to, subject, has, hasNot, attach, sizeOp, sizeVal, sizeUnit, actions }`). No class, no store — that is the first thing the staff review would change.
+- **Model:** an array of plain filter objects (`{ id, name, from, to, subject, has, hasNot, attach, sizeOp, sizeVal, sizeUnit, labels, excludeChats, example, actions }`). `example` marks the two starter filters, which show in the list but never export. No class, no store — that is the first thing the staff review would change.
 - **Export:** `buildXML()` serializes the model to Gmail's Atom-feed XML, with `escXml()` escaping every value. The property-name mapping is the load-bearing contract — see the table in the review.
 - **Import:** `parseFiltersFromXML()` runs the reverse mapping through `DOMParser`, keeping Gmail's property names as the source of truth and the app's old names only as a backwards-compatibility fallback.
 - **View:** `render()` rebuilds the filter list DOM from the model on every change. Simple and correct at small sizes; wasteful past a few hundred filters (no virtualization, no `DocumentFragment`).
@@ -180,7 +181,7 @@ Issues and pull requests are welcome. Keep the constraints that make this projec
 
 - Static only — no backend, no build step, no framework.
 - The XML property names must match Gmail's export format exactly. If you touch `propsFor()` or `parseFiltersFromXML()`, verify the round trip with the checklist in [Local Development](#local-development).
-- One clear change per pull request, with the manual checklist run and its results pasted in the PR description until automated tests exist.
+- One clear change per pull request, with the automated tests passing (`node --test tests/gmail-xml.test.js`) and the manual checklist run.
 
 ## License
 
