@@ -561,3 +561,48 @@ test("step titles are the only block bold in a step card", () => {
   assert.match(html, /\.step > b\{/);
   assert.doesNotMatch(html, /\.step b\{/);
 });
+
+test("security check flags forwarding, match-all, sensitive hiding, and never-spam-plus-skip", () => {
+  const app = runApp(makeStorage());
+  const check = app.securityCheck;
+  const mk = (data) => app.normalizeFilter(data);
+  // 1. Forwarding to another address: high, with the address in the reason.
+  let fwd = check([mk({ from: "a@b.com", actions: { forward: "someone@else.com" } })]);
+  assert.equal(fwd.length, 1);
+  assert.equal(fwd[0].level, "high");
+  assert.equal(fwd[0].rule, "forward");
+  assert.ok(fwd[0].reason.indexOf("someone@else.com") !== -1);
+  // 2. Matches everything, then deletes it: high. No criteria and no
+  // action at all is harmless and is not flagged.
+  let all = check([mk({ actions: { trash: true } })]);
+  assert.equal(all.length, 1);
+  assert.equal(all[0].level, "high");
+  assert.equal(all[0].rule, "match-all");
+  assert.equal(check([mk({})]).length, 0);
+  // 3. Hides mail from a sensitive sender: medium. The same sender
+  // without Skip Inbox, and Skip Inbox without a sensitive sender,
+  // are both clean.
+  let sens = check([mk({ from: "alerts@mybank.com", actions: { skip: true } })]);
+  assert.equal(sens.length, 1);
+  assert.equal(sens[0].level, "medium");
+  assert.equal(sens[0].rule, "sensitive");
+  assert.equal(check([mk({ from: "alerts@mybank.com", actions: { star: true } })]).length, 0);
+  assert.equal(check([mk({ from: "news@x.com", actions: { skip: true } })]).length, 0);
+  // 4. Never Spam plus Skip Inbox: medium. Either one alone is clean.
+  let ns = check([mk({ from: "news@x.com", actions: { neverspam: true, skip: true } })]);
+  assert.equal(ns.length, 1);
+  assert.equal(ns[0].level, "medium");
+  assert.equal(ns[0].rule, "neverspam-skip");
+  assert.equal(check([mk({ from: "news@x.com", actions: { neverspam: true } })]).length, 0);
+  // A plain filter with a label is clean.
+  assert.equal(check([mk({ from: "news@x.com", actions: { skip: true, label: "News" } })]).length, 0);
+});
+
+test("security check runs on exportable filters only — starters are not real filters", () => {
+  const app = runApp(makeStorage());
+  const ex = app.normalizeFilter({ from: "a@b.com", actions: { forward: "someone@else.com" } });
+  ex.example = true;
+  const real = app.normalizeFilter({ from: "news@x.com", actions: { skip: true } });
+  app.setFilters([ex, real]);
+  assert.equal(app.securityCheck(app.exportableFilters()).length, 0);
+});

@@ -79,11 +79,11 @@
   .builder-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
   .builder-head .icon-btn{flex:none}
   /* ---------- Builder dialog ---------- */
-  dialog.builder-dialog,dialog.import-dialog{border:1px solid var(--line);border-radius:20px;padding:0;max-width:560px;width:calc(100vw - 32px);background:var(--surface);color:var(--ink);box-shadow:0 24px 60px rgba(0,0,0,.3)}
-  dialog.builder-dialog::backdrop,dialog.import-dialog::backdrop{background:rgba(10,12,14,.5)}
+  dialog.builder-dialog,dialog.import-dialog,dialog.security-dialog{border:1px solid var(--line);border-radius:20px;padding:0;max-width:560px;width:calc(100vw - 32px);background:var(--surface);color:var(--ink);box-shadow:0 24px 60px rgba(0,0,0,.3)}
+  dialog.builder-dialog::backdrop,dialog.import-dialog::backdrop,dialog.security-dialog::backdrop{background:rgba(10,12,14,.5)}
   dialog.builder-dialog .builder{position:static;box-shadow:none;border:0;border-radius:20px;max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px);overflow-y:auto}
-  dialog.import-dialog{padding:22px;max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px);overflow-y:auto}
-  dialog.import-dialog h2{margin:0 0 4px;font-size:19px}
+  dialog.import-dialog,dialog.security-dialog{padding:22px;max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px);overflow-y:auto}
+  dialog.import-dialog h2,dialog.security-dialog h2{margin:0 0 4px;font-size:19px}
   dialog.import-dialog textarea{min-height:120px;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px}
   .drop-zone{display:block;border:1.5px dashed var(--line);border-radius:14px;padding:26px 18px;text-align:center;color:var(--muted);cursor:pointer;font-size:14px}
   .drop-zone b{color:var(--ink)}
@@ -91,13 +91,25 @@
   .drop-zone input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
   .btn.danger{color:var(--red);border-color:color-mix(in srgb,var(--red) 55%,transparent)}
   .btn:disabled{opacity:.45;cursor:not-allowed}
+  /* ---------- Security check ---------- */
+  .sec-summary{font-size:14px;font-weight:700;margin:0 0 14px}
+  .sec-group{margin:0 0 18px}
+  .sec-group h3{margin:0 0 8px;font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+  .sec-row{display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+  .sec-badge{flex:none;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:3px 8px;margin-top:1px}
+  .sec-badge.high{color:var(--red);background:var(--red-soft)}
+  .sec-badge.medium{color:var(--yellow);background:var(--yellow-soft)}
+  .sec-text{flex:1;min-width:0}
+  .sec-text b{display:block;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sec-text span{display:block;font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:2px;overflow-wrap:anywhere}
+  .filter-card.flash{outline:2px solid var(--blue);outline-offset:2px}
   /* Two-column builder on wide displays: matches left, actions right. */
   @media (min-width:860px){
     dialog.builder-dialog{max-width:920px}
     .builder-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
     .builder-grid .grid2{grid-template-columns:1fr}
   }
-  .builder .sub,.import-dialog .sub{color:var(--muted);font-size:13.5px;line-height:1.55;margin:0 0 16px}
+  .builder .sub,.import-dialog .sub,.security-dialog .sub{color:var(--muted);font-size:13.5px;line-height:1.55;margin:0 0 16px}
   fieldset{border:0;padding:0;margin:0 0 18px}
   legend{font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);padding:0;margin-bottom:10px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -338,6 +350,7 @@
         </button>
         <button class="btn small" id="importBtn" type="button">Import Filters</button>
         <button class="btn small danger" id="clearAllBtn" type="button">Clear all</button>
+        <button class="btn small" id="securityBtn" type="button">Security check</button>
         <button class="btn small" id="copyXmlBtn" type="button">Copy XML</button>
         <button class="btn small blue" id="downloadBtn" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
@@ -387,6 +400,20 @@
     <div class="builder-actions">
       <button class="btn primary" id="importPasteBtn" type="button">Import pasted XML</button>
       <button class="btn" id="importCancelBtn" type="button">Cancel</button>
+    </div>
+  </dialog>
+
+  <!-- SECURITY CHECK (modal dialog) -->
+  <dialog id="securityDialog" class="security-dialog" aria-labelledby="securityDialogTitle">
+    <div class="builder-head">
+      <h2 id="securityDialogTitle">Security check</h2>
+      <button class="icon-btn" id="securityDialogClose" type="button" title="Close" aria-label="Close">✕</button>
+    </div>
+    <p class="sub">A heuristic review of the filters in this list — it flags patterns an account takeover leaves behind. It never changes or deletes anything; you decide what to do with each finding. It can’t tell which forward addresses are yours, so review any address you don’t recognize. Nothing leaves this page.</p>
+    <p class="sec-summary" id="securitySummary"></p>
+    <div id="securityResults"></div>
+    <div class="builder-actions">
+      <button class="btn" id="securityCloseBtn" type="button">Close</button>
     </div>
   </dialog>
 
@@ -1304,6 +1331,108 @@
     importLastOpener = null;
   });
 
+  /* ---------- Security check ---------- */
+  // Heuristic review of the exportable filters for patterns an account
+  // takeover leaves behind. It flags, it never deletes or changes
+  // anything — the user decides what to do with each finding. The check
+  // is pure: it takes a filter list and returns findings, so tests can
+  // drive it without the dialog.
+  var SENSITIVE_WORDS = ["bank","password","security","verify","payment","invoice","billing","credit","login","reset","tax","irs"];
+  function securityCheck(list){
+    var out = [];
+    (list || []).forEach(function(f){
+      if (!f || !f.actions) return;
+      var a = f.actions;
+      var name = autoName(f);
+      // 1. Forwards mail to another address — the classic takeover move.
+      if (a.forward) out.push({ level:"high", rule:"forward", filterId:f.id, name:name, reason:"Forwards mail to " + a.forward });
+      // 2. Matches everything, then deletes, hides, or forwards it.
+      if (!hasCriteria(f)){
+        var what = a.trash ? "deletes it" : a.skip ? "skips the inbox for it" : a.forward ? "forwards it" : "";
+        if (what) out.push({ level:"high", rule:"match-all", filterId:f.id, name:name, reason:"Matches all mail and " + what });
+      }
+      // 3. Hides or deletes mail from sensitive senders.
+      if (a.skip || a.trash){
+        var text = ((f.from || "") + " " + (f.to || "") + " " + (f.subject || "") + " " + (f.has || "") + " " + (f.hasNot || "")).toLowerCase();
+        var hit = null;
+        SENSITIVE_WORDS.forEach(function(k){ if (!hit && text.indexOf(k) !== -1) hit = k; });
+        if (hit) out.push({ level:"medium", rule:"sensitive", filterId:f.id, name:name, reason:(a.trash ? "Deletes" : "Skips the inbox for") + " mail matching '" + hit + "'" });
+      }
+      // 4. Never Spam plus Skip Inbox — whitelisted and hidden together.
+      if (a.neverspam && a.skip) out.push({ level:"medium", rule:"neverspam-skip", filterId:f.id, name:name, reason:"Never sends to Spam and skips the inbox — mail matching this is whitelisted and hidden" });
+    });
+    return out;
+  }
+  var securityDialog = $("securityDialog");
+  var securityLastOpener = null;
+  function renderSecurityFindings(){
+    var box = $("securityResults");
+    box.innerHTML = "";
+    var summary = $("securitySummary");
+    var list = exportableFilters();
+    if (!list.length){
+      summary.textContent = "No filters to check yet — import your filters or add some.";
+      return;
+    }
+    var findings = securityCheck(list);
+    var high = findings.filter(function(x){ return x.level === "high"; });
+    var med = findings.filter(function(x){ return x.level === "medium"; });
+    if (!findings.length){
+      summary.textContent = "No risks found in " + list.length + " filter" + (list.length === 1 ? "" : "s") + ".";
+      var ok = document.createElement("p"); ok.className = "sub";
+      ok.textContent = "Nothing forwards mail elsewhere, nothing matches all mail and deletes or hides it, and nothing hides mail from sensitive senders. This is a heuristic check, not a guarantee — review any filter you don’t recognize.";
+      box.appendChild(ok);
+      return;
+    }
+    summary.textContent = high.length + " high · " + med.length + " medium — " + list.length + " filter" + (list.length === 1 ? "" : "s") + " checked.";
+    [["High risk", high, "high"], ["Medium risk", med, "medium"]].forEach(function(group){
+      if (!group[1].length) return;
+      var g = document.createElement("div"); g.className = "sec-group";
+      var h = document.createElement("h3"); h.textContent = group[0]; g.appendChild(h);
+      group[1].forEach(function(x){
+        var row = document.createElement("div"); row.className = "sec-row";
+        var badge = document.createElement("span"); badge.className = "sec-badge " + group[2]; badge.textContent = group[2] === "high" ? "High" : "Medium"; row.appendChild(badge);
+        var t = document.createElement("div"); t.className = "sec-text";
+        var b = document.createElement("b"); b.textContent = x.name; b.title = x.name; t.appendChild(b);
+        var s = document.createElement("span"); s.textContent = x.reason; t.appendChild(s);
+        row.appendChild(t);
+        var view = document.createElement("button"); view.type = "button"; view.className = "btn small"; view.textContent = "View";
+        view.addEventListener("click", function(){ revealFilter(x.filterId); });
+        row.appendChild(view);
+        g.appendChild(row);
+      });
+      box.appendChild(g);
+    });
+  }
+  function openSecurityDialog(opener){
+    securityLastOpener = opener || document.activeElement;
+    renderSecurityFindings();
+    if (typeof securityDialog.showModal === "function") securityDialog.showModal();
+    else securityDialog.setAttribute("open", "");
+  }
+  function revealFilter(id){
+    securityDialog.close();
+    // The card may be hidden by the current pill or search — clear the
+    // view first so the card is actually there to scroll to.
+    actionFilter = ""; searchTerm = ""; $("filterSearch").value = "";
+    applyView();
+    var card = cardEls[id];
+    if (!card) return;
+    if (card.scrollIntoView) card.scrollIntoView({ block: "center" });
+    card.classList.add("flash");
+    setTimeout(function(){ card.classList.remove("flash"); }, 2500);
+  }
+  $("securityBtn").addEventListener("click", function (e) { openSecurityDialog(e.currentTarget); });
+  $("securityDialogClose").addEventListener("click", function () { securityDialog.close(); });
+  $("securityCloseBtn").addEventListener("click", function () { securityDialog.close(); });
+  securityDialog.addEventListener("click", function (e) {
+    if (e.target === securityDialog) securityDialog.close(); // backdrop click
+  });
+  securityDialog.addEventListener("close", function () {
+    if (securityLastOpener && securityLastOpener.focus) securityLastOpener.focus();
+    securityLastOpener = null;
+  });
+
   /* ---------- Clear all ---------- */
   // Always asks first — even when only the starter examples are left.
   function clearAllFilters(){
@@ -1471,6 +1600,8 @@
       setSearch: function(q){ searchTerm = String(q == null ? "" : q).trim().toLowerCase(); applyView(); },
       openImportDialog: openImportDialog, clearAllFilters: clearAllFilters,
       getImportDialog: function(){ return importDialog; },
+      securityCheck: securityCheck, openSecurityDialog: openSecurityDialog,
+      getSecurityDialog: function(){ return securityDialog; },
       loadExamples: loadExamples,
       getFilters: function () { return filters; },
       setFilters: function (list) { filters = list; render(); }
