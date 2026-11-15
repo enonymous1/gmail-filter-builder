@@ -447,6 +447,28 @@ test("adding and removing a filter keeps the other cards and renumbers", () => {
   assert.match(list.children[1].children[3].innerHTML, /order-num[^>]*>#2</);
 });
 
+test("long filter names live in their own span so they truncate instead of wrapping", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const longName = "From notifications@notifications3.creditkarma.com";
+  const f = app.normalizeFilter({ name: longName, from: "notifications@notifications3.creditkarma.com", actions: { skip: true } });
+  const ex = app.normalizeFilter({ name: "Newsletters", has: "unsubscribe", actions: { skip: true }, example: true });
+  app.setFilters([f, ex]);
+  const list = doc.getElementById("filterList");
+  const card = list.children[0];
+  // The name is a span.fc-name holding the full name (plus a hover
+  // tooltip); the h3 holds it as its first child.
+  assert.equal(card._els.title.className, "fc-name");
+  assert.equal(card._els.title.textContent, longName);
+  assert.equal(card._els.title.title, longName);
+  assert.equal(card._els.h3.children[0], card._els.title);
+  // The Example badge is the h3's second child — beside the truncating
+  // span, never inside it (or it would be cut off with the name).
+  const exCard = list.children[1];
+  assert.equal(exCard._els.badge.textContent, "Example");
+  assert.equal(exCard._els.h3.children[1], exCard._els.badge);
+});
+
 test("editing a filter refreshes its card in place", () => {
   const app = runApp(makeStorage());
   const doc = app._document;

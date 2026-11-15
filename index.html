@@ -165,7 +165,8 @@
   .drag-handle:active{cursor:grabbing}
   .drag-handle svg{width:16px;height:16px;display:block}
   .fc-title{flex:1;min-width:0}
-  .fc-title h3{margin:0;font-size:16px;line-height:1.3;display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0;overflow-wrap:anywhere}
+  .fc-title h3{margin:0;font-size:16px;line-height:1.3;display:flex;gap:8px;align-items:center;flex-wrap:nowrap;min-width:0;overflow-wrap:anywhere}
+  .fc-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .badge{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;background:var(--yellow-soft);color:var(--yellow);border-radius:999px;padding:2px 8px}
   .fc-search{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;color:var(--muted);word-break:break-word;overflow-wrap:anywhere;margin-top:4px;line-height:1.55}
   .fc-btns{display:flex;gap:4px;flex:none}
@@ -989,11 +990,16 @@
     if (card._sig === sig) return;
     card._sig = sig;
     card._els.title.textContent = f.name;
+    card._els.title.title = f.name;
+    // The badge lives on the h3 beside the name span now (the name
+    // truncates, so it can no longer be wiped and rebuilt via textContent).
     if (f.example){
-      var badge = document.createElement("span"); badge.className = "badge"; badge.textContent = "Example";
-      card._els.title.appendChild(badge); card._els.badge = badge;
-    } else {
-      card._els.badge = null;
+      if (!card._els.badge){
+        var badge = document.createElement("span"); badge.className = "badge"; badge.textContent = "Example";
+        card._els.h3.appendChild(badge); card._els.badge = badge;
+      }
+    } else if (card._els.badge){
+      card._els.h3.removeChild(card._els.badge); card._els.badge = null;
     }
     card._els.search.textContent = searchQuery(f);
     clearChips(card._els.matches);
@@ -1014,6 +1020,11 @@
     var gripSpan = document.createElement("span"); gripSpan.className = "drag-handle"; gripSpan.title = "Drag to reorder"; gripSpan.innerHTML = grip;
     var titleWrap = document.createElement("div"); titleWrap.className = "fc-title";
     var h3 = document.createElement("h3");
+    // The name gets its own span so a long name truncates to one line
+    // with … instead of wrapping mid-word (a long "From <address>"
+    // auto-name broke across three lines with a dangling letter).
+    var nameEl = document.createElement("span"); nameEl.className = "fc-name";
+    h3.appendChild(nameEl);
     var searchEl = document.createElement("div"); searchEl.className = "fc-search";
     titleWrap.appendChild(h3); titleWrap.appendChild(searchEl);
     var btns = document.createElement("div"); btns.className = "fc-btns";
@@ -1033,7 +1044,7 @@
     // so the drag handle stays alone at the top left.
     var foot = document.createElement("div"); foot.className = "fc-foot";
     card.appendChild(foot);
-    card._els = { title: h3, badge: null, search: searchEl, matches: cc, actions: ac, order: foot };
+    card._els = { title: nameEl, h3: h3, badge: null, search: searchEl, matches: cc, actions: ac, order: foot };
 
     editBtn.addEventListener("click", function (e) {
       var live = filterById(id);
