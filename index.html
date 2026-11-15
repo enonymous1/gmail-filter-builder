@@ -146,33 +146,36 @@
   .search-row input{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font:inherit;font-size:14px;padding:10px 0;outline:none}
   .search-row input::placeholder{color:var(--faint)}
   /* Two-column filter list on wide displays — cards are half the width,
-     so the page stops being one tall stack with empty space beside it. */
+     so the page stops being one tall stack with empty space beside it.
+     Tracks are minmax(0,1fr), not 1fr: a long unbreakable string in one
+     card (a long address/label/URL) must not force its column wider
+     than the page — the card shrinks to the column instead. */
   @media (min-width:900px){
-    #filterList{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+    #filterList{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
     #filterList .filter-card{margin-bottom:0}
     #filterList .empty-state{grid-column:1/-1}
   }
-  .filter-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 18px 14px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .filter-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px 10px;margin-bottom:12px;box-shadow:var(--shadow);min-width:0}
   .filter-card.dragging{opacity:.45}
   .filter-card.drop-target{border-color:var(--red);box-shadow:0 0 0 2px var(--red-soft)}
   .fc-top{display:flex;gap:10px;align-items:flex-start}
-  .fc-foot{display:flex;justify-content:flex-end;margin-top:10px}
+  .fc-foot{display:flex;justify-content:flex-end;margin-top:6px}
   .order-num{font-size:12px;font-weight:700;color:var(--faint);font-variant-numeric:tabular-nums}
   .drag-handle{cursor:grab;color:var(--faint);padding:6px 2px;flex:none;border-radius:6px}
   .drag-handle:active{cursor:grabbing}
   .drag-handle svg{width:16px;height:16px;display:block}
   .fc-title{flex:1;min-width:0}
-  .fc-title h3{margin:0;font-size:16px;line-height:1.3;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .fc-title h3{margin:0;font-size:16px;line-height:1.3;display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0;overflow-wrap:anywhere}
   .badge{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;background:var(--yellow-soft);color:var(--yellow);border-radius:999px;padding:2px 8px}
-  .fc-search{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;color:var(--muted);word-break:break-word;margin-top:4px;line-height:1.55}
+  .fc-search{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;color:var(--muted);word-break:break-word;overflow-wrap:anywhere;margin-top:4px;line-height:1.55}
   .fc-btns{display:flex;gap:4px;flex:none}
   .icon-btn{width:38px;height:38px;border-radius:9px;border:1px solid transparent;background:transparent;color:var(--muted);display:grid;place-items:center}
   .icon-btn:hover{background:var(--chip);color:var(--ink)}
   .icon-btn.danger:hover{background:var(--red-soft);color:var(--red)}
   .icon-btn svg{width:16px;height:16px}
-  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
   .chips .clabel{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);width:100%}
-  .chip{font-size:12.5px;font-weight:600;background:var(--chip);border-radius:999px;padding:5px 11px;line-height:1.4;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  .chip{font-size:12.5px;font-weight:600;background:var(--chip);border-radius:999px;padding:5px 11px;line-height:1.4;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
   .chip.crit{background:var(--blue-soft)}
   .chip.act{background:var(--green-soft)}
   .empty-state{border:1.5px dashed var(--line);border-radius:var(--radius);padding:36px 24px;text-align:center;color:var(--muted)}
