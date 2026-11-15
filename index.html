@@ -181,6 +181,30 @@
   .fc-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .badge{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;background:var(--yellow-soft);color:var(--yellow);border-radius:999px;padding:2px 8px}
   .fc-search{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;color:var(--muted);margin-top:4px;line-height:1.55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* ---------- Table view ---------- */
+  .view-toggle{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px;background:var(--surface);margin:0 0 12px}
+  .view-toggle button{border:0;background:transparent;border-radius:999px;padding:6px 14px;font-weight:700;font-size:13px;color:var(--muted);min-height:32px}
+  .view-toggle button.active{background:var(--ink);color:var(--bg)}
+  .filter-table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);font-size:13.5px;table-layout:fixed}
+  .filter-table th,.filter-table td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line2);vertical-align:middle}
+  .filter-table thead th{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);background:var(--surface2)}
+  .filter-table th.sortable{cursor:pointer;white-space:nowrap}
+  .filter-table th.sortable:hover{color:var(--ink)}
+  .filter-table tbody tr:last-child td{border-bottom:0}
+  .filter-table th:nth-child(1),.filter-table td:nth-child(1){width:48px}
+  .filter-table th:nth-child(2),.filter-table td:nth-child(2){width:24%}
+  .filter-table th:nth-child(3),.filter-table td:nth-child(3){width:38%}
+  .filter-table th:nth-child(5),.filter-table td:nth-child(5){width:184px}
+  .filter-table td.num{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .filter-table td.name{font-weight:700}
+  .filter-table td.matches{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;color:var(--muted)}
+  .filter-table td.actions{color:var(--muted)}
+  .filter-table .cell-text{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .filter-table td.row-actions{white-space:nowrap}
+  .filter-table .icon-btn{width:30px;height:30px;display:inline-grid}
+  .filter-table td.row-actions .icon-btn{margin-right:2px}
+  .filter-table td.row-actions .icon-btn:last-child{margin-right:0}
+  .filter-table tr.no-match td{text-align:center;color:var(--muted);padding:22px 12px}
   .fc-btns{display:flex;gap:4px;flex:none}
   .icon-btn{width:38px;height:38px;border-radius:9px;border:1px solid transparent;background:transparent;color:var(--muted);display:grid;place-items:center}
   .icon-btn:hover{background:var(--chip);color:var(--ink)}
@@ -366,7 +390,25 @@
         <input type="search" id="filterSearch" placeholder="Search filters — try a name, an address, or a label" aria-label="Search filters">
       </div>
 
+      <div class="view-toggle" id="viewToggle" role="group" aria-label="Filter view">
+        <button type="button" id="viewCardsBtn" class="active" aria-pressed="true">Cards</button>
+        <button type="button" id="viewTableBtn" aria-pressed="false">Table</button>
+      </div>
+
       <div id="filterList"></div>
+
+      <div id="filterTableWrap" style="display:none">
+        <table class="filter-table" id="filterTable">
+          <thead><tr>
+            <th class="sortable" id="thNum" data-sort="num">#</th>
+            <th class="sortable" id="thName" data-sort="name">Name</th>
+            <th>Matches</th>
+            <th>Actions</th>
+            <th aria-label="Row actions"></th>
+          </tr></thead>
+          <tbody id="filterTableBody"></tbody>
+        </table>
+      </div>
 
       <details class="card panel" id="xmlPanel">
         <summary>
@@ -489,6 +531,7 @@
   var GMAIL_FEED_ID = "tag:mail.google.com,2008:filter";
   var XML_FILENAME = "gmail-filters.xml";
   var STORAGE_KEY = "gmail-filter-builder/v1"; // bump on any model change
+  var VIEW_KEY = "gmail-filter-builder/view"; // the cards/table choice
   var TOAST_MS = 3400;
 
   /** Size units: one table drives the form, chips, search text, and XML. */
@@ -995,6 +1038,17 @@
   // owner saw with 1,000 filters.
   var cardEls = {}; // filter id -> its card element
   var emptyState = null, noMatchState = null; // persistent empty-state divs
+  // The table is the second view of the same list: same model, same
+  // filters, same view (pill + search). Its rows are persistent
+  // elements too, keyed by id, for the same reason the cards are —
+  // a pill click or a keystroke must not rebuild the list and move
+  // the page.
+  var rowEls = {}; // filter id -> its table row element
+  var noMatchRow = null, noMatchRowText = null; // persistent no-match table row
+  var viewMode = "cards"; // "cards" | "table" — the toggle, persisted
+  var tableSort = { key: "num", dir: 1 }; // view-only sort; "num" is export order
+  try { var savedView = localStorage.getItem(VIEW_KEY); if (savedView === "table" || savedView === "cards") viewMode = savedView; } catch (e) {}
+  function saveViewMode(){ try { localStorage.setItem(VIEW_KEY, viewMode); } catch (e) {} }
   var noMatchH = null, noMatchP = null; // the no-match state's heading + text
 
   function filterById(id){
@@ -1120,6 +1174,138 @@
     return card;
   }
 
+  /* ---------- Table view ---------- */
+  // One row per filter: # (export order), name, the Gmail search, the
+  // actions, and the row buttons. Long cells truncate with … and carry
+  // the full text as a hover tooltip, like the card text does.
+  function fillTableRow(row, f, order){
+    // Refresh a row's content from the live filter. The order number is
+    // cheap and always refreshed; the rest is rebuilt only when the
+    // filter's content actually changed (an edit save replaces the object).
+    var numText = "#" + order;
+    if (row._els.num.textContent !== numText) row._els.num.textContent = numText;
+    var sig = JSON.stringify(f);
+    if (row._sig === sig) return;
+    row._sig = sig;
+    row._els.name.textContent = f.name;
+    row._els.name.title = f.name;
+    var q = searchQuery(f);
+    row._els.matches.textContent = q;
+    row._els.matches.title = q;
+    var acts = actionChips(f).join(" · ");
+    row._els.actions.textContent = acts;
+    row._els.actions.title = acts;
+  }
+  function buildTableRow(f){
+    // The id never changes (an edit save keeps it on the new object), so
+    // the handlers resolve the live filter by id instead of closing over
+    // the object — which would go stale after an edit replaces it.
+    var id = f.id;
+    var tr = document.createElement("tr");
+    tr.className = "filter-row"; tr.dataset.id = id;
+    var num = document.createElement("td"); num.className = "num";
+    var nameTd = document.createElement("td"); nameTd.className = "name";
+    var name = document.createElement("span"); name.className = "cell-text"; nameTd.appendChild(name);
+    var matchesTd = document.createElement("td"); matchesTd.className = "matches";
+    var matches = document.createElement("span"); matches.className = "cell-text"; matchesTd.appendChild(matches);
+    var actionsTd = document.createElement("td"); actionsTd.className = "actions";
+    var actions = document.createElement("span"); actions.className = "cell-text"; actionsTd.appendChild(actions);
+    var rowActions = document.createElement("td"); rowActions.className = "row-actions";
+    var upBtn = document.createElement("button"); upBtn.type = "button"; upBtn.className = "icon-btn"; upBtn.title = "Move up"; upBtn.setAttribute("aria-label", "Move filter up"); upBtn.textContent = "↑";
+    var downBtn = document.createElement("button"); downBtn.type = "button"; downBtn.className = "icon-btn"; downBtn.title = "Move down"; downBtn.setAttribute("aria-label", "Move filter down"); downBtn.textContent = "↓";
+    var editBtn = document.createElement("button"); editBtn.type = "button"; editBtn.className = "icon-btn"; editBtn.title = "Edit"; editBtn.setAttribute("aria-label", "Edit filter"); editBtn.innerHTML = ICON_EDIT;
+    var dupBtn = document.createElement("button"); dupBtn.type = "button"; dupBtn.className = "icon-btn"; dupBtn.title = "Duplicate"; dupBtn.setAttribute("aria-label", "Duplicate filter"); dupBtn.innerHTML = ICON_COPY;
+    var delBtn = document.createElement("button"); delBtn.type = "button"; delBtn.className = "icon-btn danger"; delBtn.title = "Delete"; delBtn.setAttribute("aria-label", "Delete filter"); delBtn.innerHTML = ICON_TRASH;
+    rowActions.appendChild(upBtn); rowActions.appendChild(downBtn); rowActions.appendChild(editBtn); rowActions.appendChild(dupBtn); rowActions.appendChild(delBtn);
+    tr.appendChild(num); tr.appendChild(nameTd); tr.appendChild(matchesTd); tr.appendChild(actionsTd); tr.appendChild(rowActions);
+    tr._els = { num:num, name:name, matches:matches, actions:actions, up:upBtn, down:downBtn };
+
+    upBtn.addEventListener("click", function(){ moveFilter(id, -1); });
+    downBtn.addEventListener("click", function(){ moveFilter(id, 1); });
+    editBtn.addEventListener("click", function (e) {
+      var live = filterById(id);
+      if (live) openEditFilter(live, e.currentTarget);
+    });
+    dupBtn.addEventListener("click", function(){
+      var live = filterById(id);
+      if (!live) return;
+      var copy = JSON.parse(JSON.stringify(live)); copy.id = uid++; copy.name = live.name + " (copy)"; copy.example = false;
+      filters.splice(filters.indexOf(live) + 1, 0, copy); render(); showToast("Duplicated.");
+    });
+    delBtn.addEventListener("click", function(){
+      filters = filters.filter(function(x){ return x.id !== id; });
+      if (editingId === id) clearBuilder();
+      render(); showToast("Filter removed.");
+    });
+    return tr;
+  }
+  // Swap one filter with its neighbour in the model (export order) and
+  // re-render. This is the table's reorder: drag doesn't translate to
+  // table rows, so the arrows are the move control there.
+  function moveFilter(id, delta){
+    var i = -1;
+    for (var j = 0; j < filters.length; j++) if (filters[j].id === id){ i = j; break; }
+    if (i < 0) return;
+    var k = i + delta;
+    if (k < 0 || k >= filters.length) return;
+    var tmp = filters[i]; filters[i] = filters[k]; filters[k] = tmp;
+    render();
+  }
+  // The table's display order. "num" is the model order (export order);
+  // "name" sorts a copy by the display name. Either way the sort is
+  // view-only — it never changes the model or the export.
+  function sortedFilters(){
+    if (tableSort.key === "name"){
+      var copy = filters.slice();
+      copy.sort(function(a, b){
+        var an = autoName(a).toLowerCase(), bn = autoName(b).toLowerCase();
+        if (an < bn) return -tableSort.dir;
+        if (an > bn) return tableSort.dir;
+        return 0;
+      });
+      return copy;
+    }
+    return filters;
+  }
+  function setTableSort(key){
+    if (key === "num"){ tableSort = { key: "num", dir: 1 }; }
+    else if (key === "name"){
+      if (tableSort.key === "name") tableSort.dir = -tableSort.dir;
+      else tableSort = { key: "name", dir: 1 };
+    }
+    updateSortIndicators();
+    applyView();
+  }
+  function updateSortIndicators(){
+    var thNum = $("thNum"), thName = $("thName");
+    if (thNum) thNum.textContent = tableSort.key === "num" ? "# ▲" : "#";
+    if (thName) thName.textContent = tableSort.key === "name" ? "Name " + (tableSort.dir === 1 ? "▲" : "▼") : "Name";
+  }
+  // Reorder only makes sense in export order. When the table is sorted
+  // by name the rows aren't in export order, so moving "up" would mean
+  // nothing visible — the arrows are disabled there, with the reason
+  // in the tooltip.
+  function refreshMoveButtons(){
+    var canMove = tableSort.key === "num";
+    filters.forEach(function(f, i){
+      var row = rowEls[f.id];
+      if (!row) return;
+      row._els.up.disabled = !canMove || i === 0;
+      row._els.down.disabled = !canMove || i === filters.length - 1;
+      row._els.up.title = canMove ? "Move up" : "Sort by # to reorder";
+      row._els.down.title = canMove ? "Move down" : "Sort by # to reorder";
+    });
+  }
+  function buildTableStates(){
+    noMatchRow = document.createElement("tr");
+    noMatchRow.className = "no-match";
+    var td = document.createElement("td");
+    td.setAttribute("colspan", "5");
+    noMatchRowText = document.createElement("span");
+    td.appendChild(noMatchRowText);
+    noMatchRow.appendChild(td);
+  }
+
   function buildEmptyStates(){
     emptyState = document.createElement("div");
     emptyState.className = "empty-state";
@@ -1140,13 +1326,36 @@
   }
 
   function applyView(){
-    // View-only: pills, which cards show, and the empty states. Never
-    // creates or destroys a card, so a pill click or a keystroke can't
-    // move anything on screen.
+    // View-only: pills, which cards/rows show, and the empty states.
+    // Never creates or destroys a card or a row, so a pill click or a
+    // keystroke can't move anything on screen.
     if (!emptyState) buildEmptyStates();
     renderActionCounts();
     var visibleIds = {};
     visibleFilters().forEach(function(f){ visibleIds[f.id] = true; });
+    var tableMode = viewMode === "table" && !!filters.length;
+    if (tableMode){
+      if (!noMatchRow) buildTableStates();
+      var tbody = $("filterTableBody");
+      var anyRowVisible = false;
+      // Re-appending moves each row into the sort's display order.
+      sortedFilters().forEach(function(f){
+        var row = rowEls[f.id];
+        if (!row) return;
+        var show = !!visibleIds[f.id];
+        row.style.display = show ? "" : "none";
+        if (show) anyRowVisible = true;
+        tbody.appendChild(row);
+      });
+      refreshMoveButtons();
+      if (!anyRowVisible){
+        noMatchRowText.textContent = searchTerm ? "No filters match “" + searchTerm + "”" : "No filters with that action";
+        if (noMatchRow.parentNode !== tbody) tbody.appendChild(noMatchRow);
+      } else {
+        if (noMatchRow.parentNode === tbody) tbody.removeChild(noMatchRow);
+      }
+      return;
+    }
     var anyVisible = false;
     filters.forEach(function(f){
       var card = cardEls[f.id];
@@ -1177,35 +1386,85 @@
 
   function render(){
     var list = $("filterList");
-    var exportableCount = exportableFilters().length;
-    $("filterCount").innerHTML = "<b>" + exportableCount + "</b> / " + GMAIL_MAX_FILTERS + " filter" + (exportableCount === 1 ? "" : "s") + " in your export — drag to reorder";
-    // No filters, nothing to filter: hide the pills card and the search
-    // box and let the empty state own the space.
     var has = !!filters.length;
+    // The table is the second view of the same list. When the list is
+    // empty the cards container owns the empty state, so the table
+    // hides and the list shows even in table mode.
+    var tableMode = viewMode === "table" && has;
+    var exportableCount = exportableFilters().length;
+    $("filterCount").innerHTML = "<b>" + exportableCount + "</b> / " + GMAIL_MAX_FILTERS + " filter" + (exportableCount === 1 ? "" : "s") + " in your export — " + (tableMode ? "reorder with ↑ ↓" : "drag to reorder");
+    // No filters, nothing to filter: hide the pills card, the search
+    // box, and the view toggle, and let the empty state own the space.
     $("actionsCard").style.display = has ? "" : "none";
     $("searchRow").style.display = has ? "" : "none";
+    $("viewToggle").style.display = has ? "" : "none";
     $("clearAllBtn").disabled = !filters.length;
-    // Reconcile the persistent cards with the model: create the new,
-    // refresh the changed, drop the gone, and re-order by re-appending
-    // (appendChild moves an existing node). Nothing is rebuilt wholesale.
-    var seen = {};
-    filters.forEach(function(f, i){
-      var card = cardEls[f.id];
-      if (!card){ card = buildFilterCard(f); cardEls[f.id] = card; }
-      fillFilterCard(card, f, i + 1);
-      list.appendChild(card);
-      seen[f.id] = true;
-    });
-    Object.keys(cardEls).forEach(function(id){
-      if (!seen[id]){
-        if (cardEls[id].parentNode === list) list.removeChild(cardEls[id]);
-        delete cardEls[id];
-      }
-    });
+    list.style.display = tableMode ? "none" : "";
+    $("filterTableWrap").style.display = tableMode ? "" : "none";
+    if (tableMode){
+      // Reconcile the persistent rows with the model, mirroring the
+      // cards: create the new, refresh the changed, drop the gone, and
+      // re-order by re-appending (appendChild moves an existing node).
+      // Nothing is rebuilt wholesale.
+      var tbody = $("filterTableBody");
+      var seenR = {};
+      filters.forEach(function(f, i){
+        var row = rowEls[f.id];
+        if (!row){ row = buildTableRow(f); rowEls[f.id] = row; }
+        fillTableRow(row, f, i + 1);
+        tbody.appendChild(row);
+        seenR[f.id] = true;
+      });
+      Object.keys(rowEls).forEach(function(id){
+        if (!seenR[id]){
+          if (rowEls[id].parentNode === tbody) tbody.removeChild(rowEls[id]);
+          delete rowEls[id];
+        }
+      });
+    } else {
+      // Reconcile the persistent cards with the model: create the new,
+      // refresh the changed, drop the gone, and re-order by re-appending
+      // (appendChild moves an existing node). Nothing is rebuilt wholesale.
+      var seen = {};
+      filters.forEach(function(f, i){
+        var card = cardEls[f.id];
+        if (!card){ card = buildFilterCard(f); cardEls[f.id] = card; }
+        fillFilterCard(card, f, i + 1);
+        list.appendChild(card);
+        seen[f.id] = true;
+      });
+      Object.keys(cardEls).forEach(function(id){
+        if (!seen[id]){
+          if (cardEls[id].parentNode === list) list.removeChild(cardEls[id]);
+          delete cardEls[id];
+        }
+      });
+    }
     $("xmlPreview").textContent = buildXML();
     saveFilters(); // autosave the working copy on every change
     applyView();
   }
+
+  /* ---------- View toggle (cards / table) ---------- */
+  function syncViewButtons(){
+    $("viewCardsBtn").classList.toggle("active", viewMode === "cards");
+    $("viewTableBtn").classList.toggle("active", viewMode === "table");
+    $("viewCardsBtn").setAttribute("aria-pressed", viewMode === "cards" ? "true" : "false");
+    $("viewTableBtn").setAttribute("aria-pressed", viewMode === "table" ? "true" : "false");
+  }
+  function setViewMode(mode){
+    if (mode !== "cards" && mode !== "table") return;
+    viewMode = mode;
+    saveViewMode();
+    syncViewButtons();
+    render();
+  }
+  $("viewCardsBtn").addEventListener("click", function(){ setViewMode("cards"); });
+  $("viewTableBtn").addEventListener("click", function(){ setViewMode("table"); });
+  $("thNum").addEventListener("click", function(){ setTableSort("num"); });
+  $("thName").addEventListener("click", function(){ setTableSort("name"); });
+  syncViewButtons();
+  updateSortIndicators();
 
   /* ---------- XML export (Gmail format) ---------- */
   function escXml(s){
@@ -1602,6 +1861,9 @@
       getImportDialog: function(){ return importDialog; },
       securityCheck: securityCheck, openSecurityDialog: openSecurityDialog,
       getSecurityDialog: function(){ return securityDialog; },
+      setViewMode: setViewMode, getViewMode: function(){ return viewMode; },
+      setTableSort: setTableSort, getTableSort: function(){ return tableSort; },
+      moveFilter: moveFilter,
       loadExamples: loadExamples,
       getFilters: function () { return filters; },
       setFilters: function (list) { filters = list; render(); }

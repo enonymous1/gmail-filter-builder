@@ -606,3 +606,120 @@ test("security check runs on exportable filters only — starters are not real f
   app.setFilters([ex, real]);
   assert.equal(app.securityCheck(app.exportableFilters()).length, 0);
 });
+
+test("table view renders one row per filter with name, query, actions, and tooltips", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const mk = (data) => app.normalizeFilter(data);
+  app.setFilters([
+    mk({ name: "News", from: "news@x.com", actions: { skip: true, label: "News" } }),
+    mk({ name: "Starred", from: "a@b.com", actions: { star: true, forward: "me@other.com" } }),
+  ]);
+  app.setViewMode("table");
+  assert.equal(doc.getElementById("filterTableWrap").style.display, "");
+  assert.equal(doc.getElementById("filterList").style.display, "none");
+  const rows = doc.getElementById("filterTableBody").children.filter((c) => c._els);
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0]._els.num.textContent, "#1");
+  assert.equal(rows[0]._els.name.textContent, "News");
+  assert.equal(rows[0]._els.name.title, "News");
+  assert.equal(rows[0]._els.matches.textContent, "from:(news@x.com)");
+  assert.equal(rows[0]._els.matches.title, "from:(news@x.com)");
+  assert.equal(rows[0]._els.actions.textContent, "Skip Inbox · Label: News");
+  assert.equal(rows[1]._els.num.textContent, "#2");
+  assert.equal(rows[1]._els.actions.textContent, "Star it · Forward to me@other.com");
+});
+
+test("table view choice persists across reload", () => {
+  const storage = makeStorage();
+  const app = runApp(storage);
+  app.setViewMode("table");
+  assert.equal(app.getViewMode(), "table");
+  assert.equal(app._document.getElementById("viewTableBtn").getAttribute("aria-pressed"), "true");
+  const app2 = runApp(storage);
+  assert.equal(app2.getViewMode(), "table");
+  assert.equal(app2._document.getElementById("filterTableWrap").style.display, "");
+  assert.equal(app2._document.getElementById("filterList").style.display, "none");
+  app2.setViewMode("cards");
+  const app3 = runApp(storage);
+  assert.equal(app3.getViewMode(), "cards");
+  assert.equal(app3._document.getElementById("filterTableWrap").style.display, "none");
+});
+
+test("sorting by name reorders the display only; # still shows the true export position", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const mk = (data) => app.normalizeFilter(data);
+  app.setFilters([
+    mk({ name: "Bravo", from: "b@x.com", actions: { skip: true } }),
+    mk({ name: "Alpha", from: "a@x.com", actions: { skip: true } }),
+    mk({ name: "Charlie", from: "c@x.com", actions: { skip: true } }),
+  ]);
+  app.setViewMode("table");
+  const rows = () => doc.getElementById("filterTableBody").children.filter((c) => c._els);
+  assert.equal(rows().map((r) => r._els.name.textContent).join(","), "Bravo,Alpha,Charlie");
+  app.setTableSort("name");
+  assert.equal(rows().map((r) => r._els.name.textContent).join(","), "Alpha,Bravo,Charlie");
+  // # is the true export position, not the display position.
+  assert.equal(rows().map((r) => r._els.num.textContent).join(","), "#2,#1,#3");
+  // The model (and the export) is untouched by a display sort.
+  assert.equal(app.getFilters().map((f) => f.name).join(","), "Bravo,Alpha,Charlie");
+  // Sorting by name again reverses it; sorting by # restores list order.
+  app.setTableSort("name");
+  assert.equal(rows().map((r) => r._els.name.textContent).join(","), "Charlie,Bravo,Alpha");
+  app.setTableSort("num");
+  assert.equal(rows().map((r) => r._els.name.textContent).join(","), "Bravo,Alpha,Charlie");
+});
+
+test("move up/down swaps adjacent filters and updates #; ends are disabled; disabled when sorted by name", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const mk = (data) => app.normalizeFilter(data);
+  app.setFilters([
+    mk({ name: "A", from: "a@x.com", actions: { skip: true } }),
+    mk({ name: "B", from: "b@x.com", actions: { skip: true } }),
+    mk({ name: "C", from: "c@x.com", actions: { skip: true } }),
+  ]);
+  app.setViewMode("table");
+  const rows = () => doc.getElementById("filterTableBody").children.filter((c) => c._els);
+  assert.equal(rows()[0]._els.up.disabled, true);
+  assert.equal(rows()[0]._els.down.disabled, false);
+  assert.equal(rows()[2]._els.up.disabled, false);
+  assert.equal(rows()[2]._els.down.disabled, true);
+  // Move B up: it becomes first, and the # column follows the model.
+  rows()[1]._els.up._listeners.click[0]();
+  assert.equal(app.getFilters().map((f) => f.name).join(","), "B,A,C");
+  assert.equal(rows()[0]._els.name.textContent, "B");
+  assert.equal(rows()[0]._els.num.textContent, "#1");
+  assert.equal(rows()[1]._els.num.textContent, "#2");
+  // Moving the first row up is a no-op (its button is disabled, and
+  // moveFilter guards the bounds too).
+  app.moveFilter(app.getFilters()[0].id, -1);
+  assert.equal(app.getFilters().map((f) => f.name).join(","), "B,A,C");
+  // Sorted by name, the arrows are all disabled.
+  app.setTableSort("name");
+  rows().forEach((r) => { assert.equal(r._els.up.disabled, true); assert.equal(r._els.down.disabled, true); });
+  app.setTableSort("num");
+  assert.equal(rows()[0]._els.up.disabled, true);
+  assert.equal(rows()[0]._els.down.disabled, false);
+});
+
+test("the action pill and search hide table rows too", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const mk = (data) => app.normalizeFilter(data);
+  app.setFilters([
+    mk({ name: "Starred", from: "a@x.com", actions: { star: true } }),
+    mk({ name: "Plain", from: "b@x.com", actions: { skip: true } }),
+  ]);
+  app.setViewMode("table");
+  const rows = () => doc.getElementById("filterTableBody").children.filter((c) => c._els);
+  app.setActionFilter("star");
+  assert.equal(rows()[0].style.display, "");
+  assert.equal(rows()[1].style.display, "none");
+  app.setActionFilter("");
+  assert.equal(rows()[1].style.display, "");
+  app.setSearch("plain");
+  assert.equal(rows()[0].style.display, "none");
+  assert.equal(rows()[1].style.display, "");
+});
