@@ -469,6 +469,25 @@ test("long filter names live in their own span so they truncate instead of wrapp
   assert.equal(exCard._els.h3.children[1], exCard._els.badge);
 });
 
+test("every truncatable bit of card text carries its full text as a hover tooltip", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const f = app.normalizeFilter({ name: "Stir", from: "gruwwl3hpfjfs2krg43w223uojbuqyjujzuvqrdbordvc2kkmvza===@talk.stir.com", actions: { skip: true, label: "A very long label name that will not fit" } });
+  app.setFilters([f]);
+  const card = doc.getElementById("filterList").children[0];
+  // Title, search line, and every chip: the tooltip is the full text.
+  assert.equal(card._els.title.title, card._els.title.textContent);
+  assert.equal(card._els.title.title, "Stir");
+  assert.equal(card._els.search.title, card._els.search.textContent);
+  assert.equal(card._els.search.title, "from:(gruwwl3hpfjfs2krg43w223uojbuqyjujzuvqrdbordvc2kkmvza===@talk.stir.com)");
+  const chipTexts = (box) => box.children.slice(1).map((c) => [c.textContent, c.title]);
+  assert.deepEqual(chipTexts(card._els.matches).map((p) => p.join("|")).join(";"), "From: gruwwl3hpfjfs2krg43w223uojbuqyjujzuvqrdbordvc2kkmvza===@talk.stir.com|From: gruwwl3hpfjfs2krg43w223uojbuqyjujzuvqrdbordvc2kkmvza===@talk.stir.com");
+  const acts = chipTexts(card._els.actions);
+  assert.equal(acts.length, 2);
+  acts.forEach((p) => assert.equal(p[1], p[0]));
+  assert.equal(acts[1][0], "Label: A very long label name that will not fit");
+});
+
 test("editing a filter refreshes its card in place", () => {
   const app = runApp(makeStorage());
   const doc = app._document;
