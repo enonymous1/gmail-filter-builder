@@ -168,14 +168,9 @@
     #filterList .empty-state{grid-column:1/-1}
   }
   .filter-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px 10px;margin-bottom:12px;box-shadow:var(--shadow);min-width:0}
-  .filter-card.dragging{opacity:.45}
-  .filter-card.drop-target{border-color:var(--red);box-shadow:0 0 0 2px var(--red-soft)}
   .fc-top{display:flex;gap:10px;align-items:flex-start}
   .fc-foot{display:flex;justify-content:flex-end;margin-top:6px}
   .order-num{font-size:12px;font-weight:700;color:var(--faint);font-variant-numeric:tabular-nums}
-  .drag-handle{cursor:grab;color:var(--faint);padding:6px 2px;flex:none;border-radius:6px}
-  .drag-handle:active{cursor:grabbing}
-  .drag-handle svg{width:16px;height:16px;display:block}
   .fc-title{flex:1;min-width:0}
   .fc-title h3{margin:0;font-size:16px;line-height:1.3;display:flex;gap:8px;align-items:center;flex-wrap:nowrap;min-width:0;overflow-wrap:anywhere}
   .fc-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -194,12 +189,14 @@
   .filter-table th:nth-child(1),.filter-table td:nth-child(1){width:48px}
   .filter-table th:nth-child(2),.filter-table td:nth-child(2){width:24%}
   .filter-table th:nth-child(3),.filter-table td:nth-child(3){width:38%}
-  .filter-table th:nth-child(5),.filter-table td:nth-child(5){width:184px}
+  .filter-table th:nth-child(5),.filter-table td:nth-child(5){width:120px}
   .filter-table td.num{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
   .filter-table td.name{font-weight:700}
-  .filter-table td.matches{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;color:var(--muted)}
-  .filter-table td.actions{color:var(--muted)}
   .filter-table .cell-text{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* Two rows of pills, then clipped: one chip is 12.5px × 1.4 line-height
+     + 10px padding ≈ 28px, so two rows plus the 6px gap is ≈ 62px; 64px
+     leaves headroom for rounding and still hides the third row. */
+  .table-chips{display:flex;flex-wrap:wrap;gap:6px;max-height:64px;overflow:hidden}
   .filter-table td.row-actions{white-space:nowrap}
   .filter-table .icon-btn{width:30px;height:30px;display:inline-grid}
   .filter-table td.row-actions .icon-btn{margin-right:2px}
@@ -461,7 +458,7 @@
 
       <div class="section-head"><h2>How the round trip works</h2></div>
       <div class="steps">
-        <div class="step"><div class="n">1</div><b>Export your existing filters <span class="opt">Optional</span></b><p>Only if you want to start from filters you already have: in Gmail, Settings → <b>Filters and Blocked Addresses</b> → Export, then <b>Import Filters</b> here to see, reorder, edit, and add to them.</p></div>
+        <div class="step"><div class="n">1</div><b>Export your existing filters <span class="opt">Optional</span></b><p>Only if you want to start from filters you already have: in Gmail, Settings → <b>Filters and Blocked Addresses</b> → Export, then <b>Import Filters</b> here to see, edit, and add to them.</p></div>
         <div class="step"><div class="n">2</div><b>Download the file</b><p>Use the Download button above. You’ll get <code>gmail-filters.xml</code> with every filter in your list.</p></div>
         <div class="step"><div class="n">3</div><b>Open Gmail settings</b><p>In Gmail on desktop: gear icon → <b>See all settings</b> → <b>Filters and Blocked Addresses</b> tab.</p></div>
         <div class="step"><div class="n">4</div><b>Import &amp; create</b><p>Click <b>Import filters</b>, choose the file, then <b>Create filters</b>. Tick “Also apply filter to matching conversations” there if you want it to clean up mail you already have.</p></div>
@@ -635,7 +632,6 @@
   var filters = [];
   var uid = 1;
   var editingId = null;
-  var dragId = null;
   // Edit-session carry-over: the builder has one label field and no
   // exclude-chats control, so a filter's extra labels and excludeChats
   // are held here while it is being edited and re-attached on save.
@@ -691,10 +687,6 @@
     TEMPLATES.forEach(function(t){ var f = mkFilter(t.data, true); if (f) filters.push(f); });
   }
   if (!loadSavedFilters()) loadExamples();
-
-  /* ---------- Card drag handle ---------- */
-  // The grip icon lives only on filter cards now (drag to reorder).
-  var grip = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
 
   /* ---------- Build action checkrows ---------- */
   var actionsList = $("actionsList");
@@ -1094,15 +1086,13 @@
   }
 
   function buildFilterCard(f){
-    var list = $("filterList");
     // The id never changes (an edit save keeps it on the new object), so
     // the handlers resolve the live filter by id instead of closing over
     // the object — which would go stale after an edit replaces it.
     var id = f.id;
     var card = document.createElement("article");
-    card.className = "filter-card"; card.draggable = true; card.dataset.id = id;
+    card.className = "filter-card";
     var top = document.createElement("div"); top.className = "fc-top";
-    var gripSpan = document.createElement("span"); gripSpan.className = "drag-handle"; gripSpan.title = "Drag to reorder"; gripSpan.innerHTML = grip;
     var titleWrap = document.createElement("div"); titleWrap.className = "fc-title";
     var h3 = document.createElement("h3");
     // The name gets its own span so a long name truncates to one line
@@ -1117,7 +1107,7 @@
     var dupBtn = document.createElement("button"); dupBtn.type = "button"; dupBtn.className = "icon-btn"; dupBtn.setAttribute("data-act", "dup"); dupBtn.title = "Duplicate"; dupBtn.setAttribute("aria-label", "Duplicate filter"); dupBtn.innerHTML = ICON_COPY;
     var delBtn = document.createElement("button"); delBtn.type = "button"; delBtn.className = "icon-btn danger"; delBtn.setAttribute("data-act", "del"); delBtn.title = "Delete"; delBtn.setAttribute("aria-label", "Delete filter"); delBtn.innerHTML = ICON_TRASH;
     btns.appendChild(editBtn); btns.appendChild(dupBtn); btns.appendChild(delBtn);
-    top.appendChild(gripSpan); top.appendChild(titleWrap); top.appendChild(btns);
+    top.appendChild(titleWrap); top.appendChild(btns);
     card.appendChild(top);
     var cc = document.createElement("div"); cc.className = "chips";
     var ccLabel = document.createElement("span"); ccLabel.className = "clabel"; ccLabel.textContent = "Matches";
@@ -1125,8 +1115,7 @@
     var ac = document.createElement("div"); ac.className = "chips";
     var acLabel = document.createElement("span"); acLabel.className = "clabel"; acLabel.textContent = "Then";
     ac.appendChild(acLabel); card.appendChild(ac);
-    // Position in the full list = export order, anchored bottom-right
-    // so the drag handle stays alone at the top left.
+    // Position in the full list = export order, anchored bottom-right.
     var foot = document.createElement("div"); foot.className = "fc-foot";
     card.appendChild(foot);
     card._els = { title: nameEl, h3: h3, badge: null, search: searchEl, matches: cc, actions: ac, order: foot };
@@ -1146,38 +1135,18 @@
       if (editingId === id) clearBuilder();
       render(); showToast("Filter removed.");
     });
-
-    card.addEventListener("dragstart", function(e){
-      dragId = id; card.classList.add("dragging");
-      e.dataTransfer.effectAllowed = "move";
-      try { e.dataTransfer.setData("text/plain", "filter:" + id); } catch(err){}
-    });
-    card.addEventListener("dragend", function(){
-      card.classList.remove("dragging");
-      list.querySelectorAll(".filter-card").forEach(function(c){ c.classList.remove("drop-target"); });
-    });
-    card.addEventListener("dragover", function(e){
-      if (dragId === null || dragId === id) return;
-      e.preventDefault(); card.classList.add("drop-target");
-    });
-    card.addEventListener("dragleave", function(){ card.classList.remove("drop-target"); });
-    card.addEventListener("drop", function(e){
-      e.preventDefault(); card.classList.remove("drop-target");
-      if (dragId === null || dragId === id) return;
-      var fromIdx = -1, toIdx = -1;
-      filters.forEach(function(x, i){ if (x.id === dragId) fromIdx = i; if (x.id === id) toIdx = i; });
-      if (fromIdx < 0 || toIdx < 0) return;
-      var moved = filters.splice(fromIdx, 1)[0];
-      filters.splice(toIdx, 0, moved);
-      dragId = null; render(); showToast("Order updated — that’s the order Gmail will list them in.");
-    });
     return card;
   }
 
   /* ---------- Table view ---------- */
-  // One row per filter: # (export order), name, the Gmail search, the
-  // actions, and the row buttons. Long cells truncate with … and carry
-  // the full text as a hover tooltip, like the card text does.
+  // One row per filter: # (export order), name, the criteria pills, the
+  // action pills, and the row buttons. The pills are the same chips as
+  // the card's, capped at two rows — the full list is on the cell's
+  // tooltip, and each pill carries its own text on hover too.
+  function clearTableChips(box){
+    // Drop every child (unlike clearChips, there is no label to keep).
+    while (box.children.length) box.removeChild(box.children[0]);
+  }
   function fillTableRow(row, f, order){
     // Refresh a row's content from the live filter. The order number is
     // cheap and always refreshed; the rest is rebuilt only when the
@@ -1189,12 +1158,14 @@
     row._sig = sig;
     row._els.name.textContent = f.name;
     row._els.name.title = f.name;
-    var q = searchQuery(f);
-    row._els.matches.textContent = q;
-    row._els.matches.title = q;
-    var acts = actionChips(f).join(" · ");
-    row._els.actions.textContent = acts;
-    row._els.actions.title = acts;
+    var crit = criteriaChips(f);
+    row._els.matches.title = crit.join(" · ");
+    clearTableChips(row._els.matches);
+    crit.forEach(function(t){ var s = document.createElement("span"); s.className = "chip crit"; s.textContent = t; s.title = t; row._els.matches.appendChild(s); });
+    var acts = actionChips(f);
+    row._els.actions.title = acts.join(" · ");
+    clearTableChips(row._els.actions);
+    acts.forEach(function(t){ var s = document.createElement("span"); s.className = "chip act"; s.textContent = t; s.title = t; row._els.actions.appendChild(s); });
   }
   function buildTableRow(f){
     // The id never changes (an edit save keeps it on the new object), so
@@ -1202,26 +1173,22 @@
     // the object — which would go stale after an edit replaces it.
     var id = f.id;
     var tr = document.createElement("tr");
-    tr.className = "filter-row"; tr.dataset.id = id;
+    tr.className = "filter-row";
     var num = document.createElement("td"); num.className = "num";
     var nameTd = document.createElement("td"); nameTd.className = "name";
     var name = document.createElement("span"); name.className = "cell-text"; nameTd.appendChild(name);
     var matchesTd = document.createElement("td"); matchesTd.className = "matches";
-    var matches = document.createElement("span"); matches.className = "cell-text"; matchesTd.appendChild(matches);
+    var matches = document.createElement("div"); matches.className = "table-chips"; matchesTd.appendChild(matches);
     var actionsTd = document.createElement("td"); actionsTd.className = "actions";
-    var actions = document.createElement("span"); actions.className = "cell-text"; actionsTd.appendChild(actions);
+    var actions = document.createElement("div"); actions.className = "table-chips"; actionsTd.appendChild(actions);
     var rowActions = document.createElement("td"); rowActions.className = "row-actions";
-    var upBtn = document.createElement("button"); upBtn.type = "button"; upBtn.className = "icon-btn"; upBtn.title = "Move up"; upBtn.setAttribute("aria-label", "Move filter up"); upBtn.textContent = "↑";
-    var downBtn = document.createElement("button"); downBtn.type = "button"; downBtn.className = "icon-btn"; downBtn.title = "Move down"; downBtn.setAttribute("aria-label", "Move filter down"); downBtn.textContent = "↓";
     var editBtn = document.createElement("button"); editBtn.type = "button"; editBtn.className = "icon-btn"; editBtn.title = "Edit"; editBtn.setAttribute("aria-label", "Edit filter"); editBtn.innerHTML = ICON_EDIT;
     var dupBtn = document.createElement("button"); dupBtn.type = "button"; dupBtn.className = "icon-btn"; dupBtn.title = "Duplicate"; dupBtn.setAttribute("aria-label", "Duplicate filter"); dupBtn.innerHTML = ICON_COPY;
     var delBtn = document.createElement("button"); delBtn.type = "button"; delBtn.className = "icon-btn danger"; delBtn.title = "Delete"; delBtn.setAttribute("aria-label", "Delete filter"); delBtn.innerHTML = ICON_TRASH;
-    rowActions.appendChild(upBtn); rowActions.appendChild(downBtn); rowActions.appendChild(editBtn); rowActions.appendChild(dupBtn); rowActions.appendChild(delBtn);
+    rowActions.appendChild(editBtn); rowActions.appendChild(dupBtn); rowActions.appendChild(delBtn);
     tr.appendChild(num); tr.appendChild(nameTd); tr.appendChild(matchesTd); tr.appendChild(actionsTd); tr.appendChild(rowActions);
-    tr._els = { num:num, name:name, matches:matches, actions:actions, up:upBtn, down:downBtn };
+    tr._els = { num:num, name:name, matches:matches, actions:actions };
 
-    upBtn.addEventListener("click", function(){ moveFilter(id, -1); });
-    downBtn.addEventListener("click", function(){ moveFilter(id, 1); });
     editBtn.addEventListener("click", function (e) {
       var live = filterById(id);
       if (live) openEditFilter(live, e.currentTarget);
@@ -1238,18 +1205,6 @@
       render(); showToast("Filter removed.");
     });
     return tr;
-  }
-  // Swap one filter with its neighbour in the model (export order) and
-  // re-render. This is the table's reorder: drag doesn't translate to
-  // table rows, so the arrows are the move control there.
-  function moveFilter(id, delta){
-    var i = -1;
-    for (var j = 0; j < filters.length; j++) if (filters[j].id === id){ i = j; break; }
-    if (i < 0) return;
-    var k = i + delta;
-    if (k < 0 || k >= filters.length) return;
-    var tmp = filters[i]; filters[i] = filters[k]; filters[k] = tmp;
-    render();
   }
   // The table's display order. "num" is the model order (export order);
   // "name" sorts a copy by the display name. Either way the sort is
@@ -1280,21 +1235,6 @@
     var thNum = $("thNum"), thName = $("thName");
     if (thNum) thNum.textContent = tableSort.key === "num" ? "# ▲" : "#";
     if (thName) thName.textContent = tableSort.key === "name" ? "Name " + (tableSort.dir === 1 ? "▲" : "▼") : "Name";
-  }
-  // Reorder only makes sense in export order. When the table is sorted
-  // by name the rows aren't in export order, so moving "up" would mean
-  // nothing visible — the arrows are disabled there, with the reason
-  // in the tooltip.
-  function refreshMoveButtons(){
-    var canMove = tableSort.key === "num";
-    filters.forEach(function(f, i){
-      var row = rowEls[f.id];
-      if (!row) return;
-      row._els.up.disabled = !canMove || i === 0;
-      row._els.down.disabled = !canMove || i === filters.length - 1;
-      row._els.up.title = canMove ? "Move up" : "Sort by # to reorder";
-      row._els.down.title = canMove ? "Move down" : "Sort by # to reorder";
-    });
   }
   function buildTableStates(){
     noMatchRow = document.createElement("tr");
@@ -1347,7 +1287,6 @@
         if (show) anyRowVisible = true;
         tbody.appendChild(row);
       });
-      refreshMoveButtons();
       if (!anyRowVisible){
         noMatchRowText.textContent = searchTerm ? "No filters match “" + searchTerm + "”" : "No filters with that action";
         if (noMatchRow.parentNode !== tbody) tbody.appendChild(noMatchRow);
@@ -1392,7 +1331,7 @@
     // hides and the list shows even in table mode.
     var tableMode = viewMode === "table" && has;
     var exportableCount = exportableFilters().length;
-    $("filterCount").innerHTML = "<b>" + exportableCount + "</b> / " + GMAIL_MAX_FILTERS + " filter" + (exportableCount === 1 ? "" : "s") + " in your export — " + (tableMode ? "reorder with ↑ ↓" : "drag to reorder");
+    $("filterCount").innerHTML = "<b>" + exportableCount + "</b> / " + GMAIL_MAX_FILTERS + " filter" + (exportableCount === 1 ? "" : "s") + " in your export";
     // No filters, nothing to filter: hide the pills card, the search
     // box, and the view toggle, and let the empty state own the space.
     $("actionsCard").style.display = has ? "" : "none";
@@ -1863,7 +1802,6 @@
       getSecurityDialog: function(){ return securityDialog; },
       setViewMode: setViewMode, getViewMode: function(){ return viewMode; },
       setTableSort: setTableSort, getTableSort: function(){ return tableSort; },
-      moveFilter: moveFilter,
       loadExamples: loadExamples,
       getFilters: function () { return filters; },
       setFilters: function (list) { filters = list; render(); }

@@ -607,7 +607,7 @@ test("security check runs on exportable filters only — starters are not real f
   assert.equal(app.securityCheck(app.exportableFilters()).length, 0);
 });
 
-test("table view renders one row per filter with name, query, actions, and tooltips", () => {
+test("table view renders one row per filter with name and pills, and three row buttons", () => {
   const app = runApp(makeStorage());
   const doc = app._document;
   const mk = (data) => app.normalizeFilter(data);
@@ -623,11 +623,20 @@ test("table view renders one row per filter with name, query, actions, and toolt
   assert.equal(rows[0]._els.num.textContent, "#1");
   assert.equal(rows[0]._els.name.textContent, "News");
   assert.equal(rows[0]._els.name.title, "News");
-  assert.equal(rows[0]._els.matches.textContent, "from:(news@x.com)");
-  assert.equal(rows[0]._els.matches.title, "from:(news@x.com)");
-  assert.equal(rows[0]._els.actions.textContent, "Skip Inbox · Label: News");
+  // The matches/actions cells hold the same pills as the card, not
+  // one truncated line — each pill carries its own text on hover, and
+  // the cell's tooltip holds the whole list.
+  const chipTexts = (box) => box.children.map((c) => c.textContent);
+  assert.equal(chipTexts(rows[0]._els.matches).join("|"), "From: news@x.com");
+  assert.equal(rows[0]._els.matches.title, "From: news@x.com");
+  assert.equal(chipTexts(rows[0]._els.actions).join("|"), "Skip Inbox|Label: News");
+  assert.equal(rows[0]._els.actions.title, "Skip Inbox · Label: News");
   assert.equal(rows[1]._els.num.textContent, "#2");
-  assert.equal(rows[1]._els.actions.textContent, "Star it · Forward to me@other.com");
+  assert.equal(chipTexts(rows[1]._els.actions).join("|"), "Star it|Forward to me@other.com");
+  // Three row buttons (Edit, Duplicate, Delete) — no move arrows.
+  assert.equal(rows[0].children[4].children.length, 3);
+  assert.equal(rows[0]._els.up, undefined);
+  assert.equal(rows[0]._els.down, undefined);
 });
 
 test("table view choice persists across reload", () => {
@@ -671,39 +680,6 @@ test("sorting by name reorders the display only; # still shows the true export p
   assert.equal(rows().map((r) => r._els.name.textContent).join(","), "Bravo,Alpha,Charlie");
 });
 
-test("move up/down swaps adjacent filters and updates #; ends are disabled; disabled when sorted by name", () => {
-  const app = runApp(makeStorage());
-  const doc = app._document;
-  const mk = (data) => app.normalizeFilter(data);
-  app.setFilters([
-    mk({ name: "A", from: "a@x.com", actions: { skip: true } }),
-    mk({ name: "B", from: "b@x.com", actions: { skip: true } }),
-    mk({ name: "C", from: "c@x.com", actions: { skip: true } }),
-  ]);
-  app.setViewMode("table");
-  const rows = () => doc.getElementById("filterTableBody").children.filter((c) => c._els);
-  assert.equal(rows()[0]._els.up.disabled, true);
-  assert.equal(rows()[0]._els.down.disabled, false);
-  assert.equal(rows()[2]._els.up.disabled, false);
-  assert.equal(rows()[2]._els.down.disabled, true);
-  // Move B up: it becomes first, and the # column follows the model.
-  rows()[1]._els.up._listeners.click[0]();
-  assert.equal(app.getFilters().map((f) => f.name).join(","), "B,A,C");
-  assert.equal(rows()[0]._els.name.textContent, "B");
-  assert.equal(rows()[0]._els.num.textContent, "#1");
-  assert.equal(rows()[1]._els.num.textContent, "#2");
-  // Moving the first row up is a no-op (its button is disabled, and
-  // moveFilter guards the bounds too).
-  app.moveFilter(app.getFilters()[0].id, -1);
-  assert.equal(app.getFilters().map((f) => f.name).join(","), "B,A,C");
-  // Sorted by name, the arrows are all disabled.
-  app.setTableSort("name");
-  rows().forEach((r) => { assert.equal(r._els.up.disabled, true); assert.equal(r._els.down.disabled, true); });
-  app.setTableSort("num");
-  assert.equal(rows()[0]._els.up.disabled, true);
-  assert.equal(rows()[0]._els.down.disabled, false);
-});
-
 test("the action pill and search hide table rows too", () => {
   const app = runApp(makeStorage());
   const doc = app._document;
@@ -722,4 +698,41 @@ test("the action pill and search hide table rows too", () => {
   app.setSearch("plain");
   assert.equal(rows()[0].style.display, "none");
   assert.equal(rows()[1].style.display, "");
+});
+
+test("cards have no drag handle and are not draggable", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const html = fs.readFileSync(INDEX, "utf8");
+  // No card-drag machinery left in the page at all (the import dialog's
+  // file drop zone still uses dragover/drop, and stays).
+  assert.doesNotMatch(html, /dragId|draggable|drag-handle|dragstart|drop-target/);
+  const card = doc.getElementById("filterList").children[0];
+  assert.ok(!card.draggable);
+  // The card top row is just the title and the buttons — no grip.
+  assert.equal(card.children[0].children.length, 2);
+});
+
+test("table pills are capped at two rows visually but every pill is in the DOM", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const html = fs.readFileSync(INDEX, "utf8");
+  // The cap is a max-height on the pill container: two chip rows plus
+  // the gap, with the third row clipped.
+  assert.match(html, /\.table-chips\{[^}]*max-height:64px;overflow:hidden/);
+  const f = app.normalizeFilter({
+    from: "a@b.com", to: "c@d.com", subject: "hello", has: "invoice",
+    hasNot: "spam", attach: true, sizeOp: "s_sl", sizeVal: "5", sizeUnit: "s_smb",
+    actions: { skip: true, read: true, star: true, label: "L", category: "^smartlabel_personal", forward: "x@y.com", trash: true, neverspam: true, alwaysimp: true, neverimp: true },
+  });
+  app.setFilters([f]);
+  app.setViewMode("table");
+  const row = doc.getElementById("filterTableBody").children.filter((c) => c._els)[0];
+  assert.equal(row._els.matches.className, "table-chips");
+  assert.equal(row._els.matches.children.length, 7);
+  assert.equal(row._els.actions.className, "table-chips");
+  assert.equal(row._els.actions.children.length, 10);
+  // The full list is still reachable on hover.
+  assert.ok(row._els.matches.title.indexOf("From: a@b.com") !== -1);
+  assert.ok(row._els.actions.title.indexOf("Forward to x@y.com") !== -1);
 });
