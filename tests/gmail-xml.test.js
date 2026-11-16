@@ -736,3 +736,55 @@ test("table pills are capped at two rows visually but every pill is in the DOM",
   assert.ok(row._els.matches.title.indexOf("From: a@b.com") !== -1);
   assert.ok(row._els.actions.title.indexOf("Forward to x@y.com") !== -1);
 });
+
+test("security View opens the filter in the editor, from either view", () => {
+  const mk = (app, data) => app.normalizeFilter(data);
+  // Open the report, click the first finding's View button, return the doc.
+  const openFirstView = (app) => {
+    const doc = app._document;
+    app.openSecurityDialog();
+    const results = doc.getElementById("securityResults");
+    const grid = results.children[0].children[1]; // first group → its grid
+    const viewBtn = grid.children[0].children[2]; // first row → View button
+    viewBtn._listeners.click[0]();
+    return doc;
+  };
+  // Cards view.
+  let app = runApp(makeStorage());
+  app.setFilters([mk(app, { name: "Fwd", from: "a@b.com", actions: { forward: "someone@else.com" } })]);
+  let doc = openFirstView(app);
+  assert.equal(doc.getElementById("filterDialog").open, true);
+  assert.equal(doc.getElementById("builderTitle").textContent, "Edit filter");
+  assert.equal(doc.getElementById("fName").value, "Fwd");
+  assert.equal(doc.getElementById("a_forward").checked, true);
+  assert.equal(doc.getElementById("aForwardText").value, "someone@else.com");
+  // Table view — the old scroll-to-card path never worked here.
+  app = runApp(makeStorage());
+  app.setFilters([mk(app, { name: "Fwd", from: "a@b.com", actions: { forward: "someone@else.com" } })]);
+  app.setViewMode("table");
+  doc = openFirstView(app);
+  assert.equal(doc.getElementById("filterDialog").open, true);
+  assert.equal(doc.getElementById("fName").value, "Fwd");
+  assert.equal(doc.getElementById("a_forward").checked, true);
+});
+
+test("security findings lay out in a two-column grid on wide displays", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const html = fs.readFileSync(INDEX, "utf8");
+  // The dialog widens to the builder's width, and the findings grid
+  // goes two columns, at the same 860px breakpoint.
+  assert.match(html, /@media \(min-width:860px\)\{[\s\S]*?dialog\.security-dialog\{max-width:920px\}/);
+  assert.match(html, /\.sec-grid\{display:grid;grid-template-columns:1fr;gap:8px\}/);
+  assert.match(html, /\.sec-grid\{grid-template-columns:1fr 1fr\}/);
+  const mk = (data) => app.normalizeFilter(data);
+  app.setFilters([
+    mk({ name: "A", from: "a@b.com", actions: { forward: "x@y.com" } }),
+    mk({ name: "B", from: "b@c.com", actions: { forward: "x@y.com" } }),
+  ]);
+  app.openSecurityDialog();
+  const results = doc.getElementById("securityResults");
+  const grid = results.children[0].children[1];
+  assert.equal(grid.className, "sec-grid");
+  assert.equal(grid.children.length, 2);
+});

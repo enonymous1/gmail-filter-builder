@@ -95,17 +95,19 @@
   .sec-summary{font-size:14px;font-weight:700;margin:0 0 14px}
   .sec-group{margin:0 0 18px}
   .sec-group h3{margin:0 0 8px;font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
-  .sec-row{display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+  .sec-grid{display:grid;grid-template-columns:1fr;gap:8px}
+  .sec-row{display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
   .sec-badge{flex:none;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:3px 8px;margin-top:1px}
   .sec-badge.high{color:var(--red);background:var(--red-soft)}
   .sec-badge.medium{color:var(--yellow);background:var(--yellow-soft)}
   .sec-text{flex:1;min-width:0}
   .sec-text b{display:block;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .sec-text span{display:block;font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:2px;overflow-wrap:anywhere}
-  .filter-card.flash{outline:2px solid var(--blue);outline-offset:2px}
   /* Two-column builder on wide displays: matches left, actions right. */
   @media (min-width:860px){
     dialog.builder-dialog{max-width:920px}
+    dialog.security-dialog{max-width:920px}
+    .sec-grid{grid-template-columns:1fr 1fr}
     .builder-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
     .builder-grid .grid2{grid-template-columns:1fr}
   }
@@ -1587,6 +1589,7 @@
       if (!group[1].length) return;
       var g = document.createElement("div"); g.className = "sec-group";
       var h = document.createElement("h3"); h.textContent = group[0]; g.appendChild(h);
+      var grid = document.createElement("div"); grid.className = "sec-grid";
       group[1].forEach(function(x){
         var row = document.createElement("div"); row.className = "sec-row";
         var badge = document.createElement("span"); badge.className = "sec-badge " + group[2]; badge.textContent = group[2] === "high" ? "High" : "Medium"; row.appendChild(badge);
@@ -1597,8 +1600,9 @@
         var view = document.createElement("button"); view.type = "button"; view.className = "btn small"; view.textContent = "View";
         view.addEventListener("click", function(){ revealFilter(x.filterId); });
         row.appendChild(view);
-        g.appendChild(row);
+        grid.appendChild(row);
       });
+      g.appendChild(grid);
       box.appendChild(g);
     });
   }
@@ -1609,16 +1613,16 @@
     else securityDialog.setAttribute("open", "");
   }
   function revealFilter(id){
+    // Open the filter itself in the builder dialog — the same detail
+    // view the Edit button opens — instead of scrolling to its card.
+    // The card only exists in the cards view and may be hidden by a
+    // pill or a search, so the scroll never worked from the table.
+    // Closing the report first keeps one dialog open at a time; focus
+    // returns to the Security check button when the editor closes.
+    var live = filterById(id);
+    if (!live) return;
     securityDialog.close();
-    // The card may be hidden by the current pill or search — clear the
-    // view first so the card is actually there to scroll to.
-    actionFilter = ""; searchTerm = ""; $("filterSearch").value = "";
-    applyView();
-    var card = cardEls[id];
-    if (!card) return;
-    if (card.scrollIntoView) card.scrollIntoView({ block: "center" });
-    card.classList.add("flash");
-    setTimeout(function(){ card.classList.remove("flash"); }, 2500);
+    openEditFilter(live, $("securityBtn"));
   }
   $("securityBtn").addEventListener("click", function (e) { openSecurityDialog(e.currentTarget); });
   $("securityDialogClose").addEventListener("click", function () { securityDialog.close(); });
