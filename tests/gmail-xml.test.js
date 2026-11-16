@@ -773,10 +773,14 @@ test("security findings lay out in a two-column grid on wide displays", () => {
   const doc = app._document;
   const html = fs.readFileSync(INDEX, "utf8");
   // The dialog widens to the builder's width, and the findings grid
-  // goes two columns, at the same 860px breakpoint.
+  // goes two columns, at the same 860px breakpoint. The tracks are
+  // minmax(0,1fr) and the rows min-width:0 — plain 1fr is minmax(auto,1fr),
+  // and a long unbreakable name in a row forced its track wider than the
+  // dialog, so the right column was cut off with its View buttons gone.
   assert.match(html, /@media \(min-width:860px\)\{[\s\S]*?dialog\.security-dialog\{max-width:920px\}/);
-  assert.match(html, /\.sec-grid\{display:grid;grid-template-columns:1fr;gap:8px\}/);
-  assert.match(html, /\.sec-grid\{grid-template-columns:1fr 1fr\}/);
+  assert.match(html, /\.sec-grid\{display:grid;grid-template-columns:minmax\(0,1fr\);gap:8px\}/);
+  assert.match(html, /\.sec-grid\{grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)\}/);
+  assert.match(html, /\.sec-row\{[^}]*min-width:0/);
   const mk = (data) => app.normalizeFilter(data);
   app.setFilters([
     mk({ name: "A", from: "a@b.com", actions: { forward: "x@y.com" } }),
