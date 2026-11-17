@@ -42,11 +42,13 @@ For a list imported from Gmail — especially one near the 1,000-filter limit �
 - **Merge Similar:** finds filters that can be combined or removed to free up space. *Merge:* same registrable domain + same other criteria + same actions → one filter (filters from a company's subdomains, like mail8/mail4/notifications5.creditkarma.com, merge together; the merged From lists each subdomain explicitly as an OR, and also matches future senders from those subdomains). *Exact duplicates:* identical criteria + actions → keep one. Each group has a Merge / Keep one button, and a Merge all button merges every group after a confirm.
 - **Missing labels:** lists every filter that doesn't apply a label, and suggests one derived from the sender (the registrable domain, title-cased — "Creditkarma", "Apple", "ONE"). Each row has an Apply button and a View button; a filter with no sender gets View only. An Apply all button applies every suggestion after a confirm. Applying a label is a real change — it adds the label action, so the XML Gmail imports carries it.
 
+Recording the YouTube tutorial for this tool? [docs/DEMO-SETUP.md](docs/DEMO-SETUP.md) lists every scripted scene with the exact state and how to reach it, and `demo/demo-filters.xml` is the 18-filter import that produces the Security check / Merge Similar / Missing labels states the 5 starters cannot.
+
 ### Known limitations
 
 - **Autosave is local only.** The list autosaves to this browser's `localStorage` and survives refreshes, but there is no account, sync, or JSON backup yet — the XML download is still the durable copy. Clear your browser data and the working copy is gone.
-- **Gmail's 1,000-filter limit is enforced in the app.** The toolbar shows `n / 1000`, and adding past 1,000 is refused with an error. Editing an existing filter at the limit still works.
-- **Import reports what it skips.** Unknown properties and entries with no match criteria are skipped with a reason instead of silently vanishing. Multi-label filters and `excludeChats` now round-trip.
+- **Gmail's 1,000-filter limit is enforced in the app.** The row above the list shows `n / 1000`, and adding past 1,000 is refused with an error. Editing an existing filter at the limit still works.
+- **Import reports what it skips.** Unknown properties and entries with neither match criteria nor actions are skipped with a reason instead of silently vanishing. An entry with actions but no criteria — a filter that matches all mail — imports so the Security check can flag it. Multi-label filters and `excludeChats` now round-trip.
 - **No duplicate detection at import time yet.** Importing the same file twice doubles the list. Use **Merge Similar** afterwards to combine or remove the duplicates.
 - **Large lists have no virtualization.** Cards and table rows are persistent elements keyed by filter id, so filtering and searching don't rebuild the list, but a 1,000-filter list still keeps 1,000 elements in the DOM. See [Staff review](docs/STAFF-REVIEW.md) for the full list.
 

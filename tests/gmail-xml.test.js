@@ -187,6 +187,25 @@ test("legacy names import; unknown properties are reported, not swallowed", () =
   assert.match(parsed.skipped[0].reason, /bogusProp/);
 });
 
+test("import accepts a match-all filter so the security check can flag it", () => {
+  const app = runApp(makeStorage());
+  const xml = GMAIL_XML(`
+<entry><category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:1</id><updated>2026-11-13T00:00:00Z</updated><content/>
+<apps:property name="shouldTrash" value="true"/></entry>
+<entry><category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:2</id><updated>2026-11-13T00:00:00Z</updated><content/></entry>`);
+  const parsed = app.parseFiltersFromXML(xml);
+  assert.equal(parsed.filters.length, 1);
+  assert.equal(parsed.skipped.length, 1);
+  assert.match(parsed.skipped[0].reason, /no match criteria or actions/);
+  const findings = app.securityCheck(parsed.filters);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].rule, "match-all");
+  assert.equal(findings[0].level, "high");
+  // And it round-trips: export keeps the actions-only entry.
+  app.setFilters(parsed.filters);
+  assert.equal(app.parseFiltersFromXML(app.buildXML()).filters.length, 1);
+});
+
 test("validateFilter rejects empty, bad size, bad email; enforces the 1,000 limit", () => {
   const app = runApp(makeStorage());
   const mk = (o) => app.normalizeFilter({ from: "a@b.c", actions: { star: true }, ...o });

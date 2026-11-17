@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Demo seed for recording the YouTube tutorial (docs/DEMO-SETUP.md).
+     Import via Import Filters. 18 filters. Importing replaces the 5
+     starter examples. All addresses are fictional demo props; brand
+     domains (creditkarma.com, spotify.com, netflix.com, github.com) are
+     used only so Merge Similar and Missing labels show the scripted
+     brand names. Never import this into a real Gmail account — use a
+     throwaway account for the round-trip scene, or don't import at all.
+     Expected states after import:
+       Security check: 2 high (forward to outside@example.net;
+         match-all delete) · 2 medium (bank delete; Never Spam + Skip
+         Inbox).  Merge Similar: 2 Credit Karma groups (frees 2 + 3)
+         + 1 duplicate pair (frees 1).  Missing labels: 5 rows —
+         Spotify, Netflix, Creditkarma, Github (+ 1 senderless row
+         with no suggestion).  Counter reads 18 / 1000.
+     Why the Credit Karma merge groups use label-only / label+star
+     actions (no Skip Inbox): the security heuristic flags any
+     skip/trash filter whose sender contains a sensitive word, and
+     "credit" appears in "creditkarma.com" — with Skip Inbox, all 7
+     Credit Karma filters would show as Medium "mail matching
+     'credit'" and drown the security scene. The merge mechanic is
+     identical either way (same domain + same actions -> one filter). -->
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:apps="http://schemas.google.com/apps/2006">
+  <title>Mail Filters</title>
+  <id>tag:mail.google.com,2008:filter</id>
+  <updated>2026-11-17T00:00:00Z</updated>
+  <!-- Merge group A: 3 filters, same domain + same actions -> frees 2 -->
+  <entry>
+    <category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:1</id><updated>2026-11-17T00:00:00Z</updated><content/>
+    <apps:property name="from" value="@mail8.creditkarma.com"/><apps:property name="label" value="Creditkarma"/>
+  </entry>
+  <entry>
+    <category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:2</id><updated>2026-11-17T00:00:00Z</updated><content/>
+    <apps:property name="from" value="@mail4.creditkarma.com"/><apps:property name="label" value="Creditkarma"/>
+  </entry>
+  <entry>
+    <category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:3</id><updated>2026-11-17T00:00:00Z</updated><content/>
+    <apps:property name="from" value="@notifications5.creditkarma.com"/><apps:property name="label" value="Creditkarma"/>
+  </entry>
+  <!-- Merge group B: 4 filters, same domain + same actions -> frees 3 -->
+  <entry>
+    <category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:4</id><updated>2026-11-17T00:00:00Z</updated><content/>
+    <apps:property name="from" value="@mail1.creditkarma.com"/><apps:property name="shouldStar" value="true"/><apps:property name="label" value="Creditkarma"/>
+  </entry>
+  <entry>
+    <category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:5</id><updated>2026-11-17T00:00:00Z</updated><content/>
+    <apps:property name="from" value="@mail2.creditkarma.com"/><apps:property name="shouldStar" value="true"/><apps:property name="label" value="Creditkarma"/>
+  </entry>
+  <entry>
+    <category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:6</id><updated>2026-11-17T00:00:00Z</updated><content/>
+    <apps:property name="from" value="@mail3.creditkarma.com"/><apps:property name="shouldStar" value="true"/><apps:property name="label" value="Creditkarma"/>
+  </entry>
+  <entry>
+    <category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:7</id><updated>2026-11-17T00:00:00Z</updated><content/>
+    <apps:property name="from" value="@savings1.creditkarma.com"/><apps:property name="shouldStar" value="true"/><apps:property name="label" value="Creditkarma"/>
+  </entry>
+  <!-- Duplicate pair: identical criteria + actions -> Keep one, frees 1 -->
+  <entry>
+    <category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:8</id><updated>2026-11-17T00:00:00Z</updated><content/>
+    <apps:property name="from" value="orders@amazon.example.com"/><apps:property name="shouldArchive" value="true"/><apps:property name="label" value="Amazon"/>
+  </entry>
+  <entry>
+    <category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:9</id><updated>2026-11-17T00:00:00Z</updated><content/>
+    <apps:property name="from" value="orders@amazon.example.com"/><apps:property name="shouldArchive" value="true"/><apps:property name="label" value="Amazon"/>
+  </entry>
+  <!-- Receipt filter: the 4:20 "search receipt" demo target -->
+  <entry>
+    <category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:10</id><updated>2026-11-17T00:00:00Z</updated><content/>
+    <apps:property name="from" value="receipts@amazon.example.com"/><apps:property name="subject" value="Your receipt is ready"/><apps:property name="shouldArchive" value="true"/><apps:property name="shouldMarkAsRead" value="true"/><apps:property name="label" value="Finance/Receipts"/>
+  </entry>
+  <!-- Security High: forwards mail to another address -->
+  <entry>
+    <category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:11</id><updated>2026-11-17T00:00:00Z</updated><content/>
+    <apps:property name="from" value="newsletter@example.com"/><apps:property name="forwardTo" value="outside@example.net"/><apps:property name="label" value="Newsletters"/>
+  </entry>
+  <!-- Security High: matches all mail, then deletes it (no criteria) -->
+  <entry>
+    <category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:12</id><updated>2026-11-17T00:00:00Z</updated><content/>
+    <apps:property name="shouldTrash" value="true"/>
+  </entry>
+  <!-- Security Medium: deletes mail from a sensitive sender -->
+  <entry>
+    <category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:13</id><updated>2026-11-17T00:00:00Z</updated><content/>
+    <apps:property name="from" value="alerts@bankofamerica.example.com"/><apps:property name="shouldTrash" value="true"/><apps:property name="label" value="Bank of America"/>
+  </entry>
+  <!-- Security Medium: Never Spam + Skip Inbox together -->
+  <entry>
+    <category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:14</id><updated>2026-11-17T00:00:00Z</updated><content/>
+    <apps:property name="from" value="alerts@vip-mail.example.com"/><apps:property name="shouldArchive" value="true"/><apps:property name="shouldNeverSpam" value="true"/><apps:property name="label" value="VIP"/>
+  </entry>
+  <!-- Missing labels: no label action, plain sender -> suggestion -->
+  <entry>
+    <category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:15</id><updated>2026-11-17T00:00:00Z</updated><content/>
+    <apps:property name="from" value="@spotify.com"/><apps:property name="shouldArchive" value="true"/>
+  </entry>
+  <entry>
+    <category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:16</id><updated>2026-11-17T00:00:00Z</updated><content/>
+    <apps:property name="from" value="@netflix.com"/><apps:property name="shouldArchive" value="true"/>
+  </entry>
+  <entry>
+    <category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:17</id><updated>2026-11-17T00:00:00Z</updated><content/>
+    <apps:property name="from" value="@mail6.creditkarma.com"/><apps:property name="shouldStar" value="true"/>
+  </entry>
+  <entry>
+    <category term="filter"/><title>Mail Filter</title><id>tag:mail.google.com,2008:filter:18</id><updated>2026-11-17T00:00:00Z</updated><content/>
+    <apps:property name="from" value="@github.com"/><apps:property name="shouldArchive" value="true"/>
+  </entry>
+</feed>

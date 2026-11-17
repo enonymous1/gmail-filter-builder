@@ -1061,6 +1061,9 @@
     if (f.hasNot) c.push("Doesn’t have: " + f.hasNot);
     if (f.attach) c.push("Has attachment");
     if (f.sizeOp && f.sizeVal) c.push((f.sizeOp === "s_sl" ? "Larger than " : "Smaller than ") + f.sizeVal + " " + (SIZE_UNITS[f.sizeUnit] || SIZE_UNITS.s_smb).label);
+    // No criteria at all means the filter matches all mail — say so
+    // on the card instead of showing an empty Matches row.
+    if (!c.length) c.push("All mail");
     return c;
   }
   function actionChips(f){
@@ -2377,7 +2380,12 @@
         labels: labels,
         actions: actions
       });
-      if (!f || !hasCriteria(f)) { skipped.push({ entry: i + 1, reason: "no match criteria" }); continue; }
+      // Entries with actions but no criteria are real Gmail filters:
+      // a filter that matches all mail. They must import — otherwise
+      // the Security check's match-all rule could never fire, since
+      // the builder itself requires a match. Only an entry with
+      // neither criteria nor actions is skipped as empty.
+      if (!f || (!hasCriteria(f) && !hasActions(f))) { skipped.push({ entry: i + 1, reason: "no match criteria or actions" }); continue; }
       f.name = autoName(f);
       out.push(f);
     }
