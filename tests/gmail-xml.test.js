@@ -833,6 +833,60 @@ test("a bare-domain From groups with per-sender filters from that domain", () =>
   assert.equal(opp.merges[0].count, 2);
 });
 
+test("help review groups subdomains of the same registrable domain for merging", () => {
+  const app = runApp(makeStorage());
+  const mk = (data) => app.normalizeFilter(data);
+  const list = [
+    mk({ from: "mail@mail8.creditkarma.com", actions: { skip: true, label: "Creditkarma" } }),
+    mk({ from: "mail@mail4.creditkarma.com", actions: { skip: true, label: "Creditkarma" } }),
+    mk({ from: "notifications@notifications5.creditkarma.com", actions: { skip: true, label: "Creditkarma" } }),
+    // The bare registrable domain — same company, same group.
+    mk({ from: "notifications@creditkarma.com", actions: { skip: true, label: "Creditkarma" } }),
+    // A different registrable domain, even with the same label —
+    // its sender is genuinely elsewhere, so it stays out.
+    mk({ from: "info@mail.seedfi.com", actions: { skip: true, label: "Creditkarma" } }),
+    // Same company, different actions (never spam) — a separate group.
+    mk({ from: "notifications@mail9.creditkarma.com", actions: { skip: true, label: "Creditkarma", neverspam: true } }),
+    mk({ from: "notifications@mail6.creditkarma.com", actions: { skip: true, label: "Creditkarma", neverspam: true } }),
+  ];
+  const opp = app.findHelpOpportunities(list);
+  assert.equal(opp.merges.length, 2);
+  const plain = opp.merges.find((m) => m.actions.indexOf("Never to Spam") === -1);
+  const never = opp.merges.find((m) => m.actions.indexOf("Never to Spam") !== -1);
+  assert.equal(plain.domain, "creditkarma.com");
+  assert.equal(plain.count, 4);
+  assert.equal(plain.domains.join(","), "mail8.creditkarma.com,mail4.creditkarma.com,notifications5.creditkarma.com,creditkarma.com");
+  assert.equal(plain.slotsFreed, 3);
+  assert.equal(never.domain, "creditkarma.com");
+  assert.equal(never.count, 2);
+  assert.equal(never.domains.join(","), "mail9.creditkarma.com,mail6.creditkarma.com");
+});
+
+test("applying a subdomain merge builds an explicit OR of the subdomains", () => {
+  const app = runApp(makeStorage());
+  const mk = (data) => app.normalizeFilter(data);
+  app.setFilters([
+    mk({ from: "mail@mail8.creditkarma.com", actions: { skip: true, label: "Creditkarma" } }),
+    mk({ from: "mail@mail4.creditkarma.com", actions: { skip: true, label: "Creditkarma" } }),
+    mk({ from: "notifications@creditkarma.com", actions: { skip: true, label: "Creditkarma" } }),
+  ]);
+  const opp = app.findHelpOpportunities(app.getFilters());
+  assert.equal(opp.merges.length, 1);
+  app.applyMerge(opp.merges[0].ids);
+  const after = app.getFilters();
+  assert.equal(after.length, 1);
+  // An explicit OR of the subdomains — it matches exactly the
+  // senders it came from, whether or not Gmail's bare
+  // "@creditkarma.com" would also match its subdomains.
+  assert.equal(after[0].from, "{@mail8.creditkarma.com @mail4.creditkarma.com @creditkarma.com}");
+  assert.equal(after[0].name, "Creditkarma");
+  assert.equal(after[0].actions.skip, true);
+  assert.equal(after[0].actions.label, "Creditkarma");
+  // The XML carries the OR in the from property.
+  const xml = app.buildXML();
+  assert.ok(xml.indexOf('name="from" value="{@mail8.creditkarma.com @mail4.creditkarma.com @creditkarma.com}"') !== -1);
+});
+
 test("help review finds exact duplicates and ignores near-misses", () => {
   const app = runApp(makeStorage());
   const mk = (data) => app.normalizeFilter(data);
@@ -1132,3 +1186,4 @@ test("noLabelFilters returns every filter without a label action", () => {
   ];
   assert.equal(app.noLabelFilters(list).length, 2);
 });
+

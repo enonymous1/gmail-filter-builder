@@ -509,7 +509,7 @@
       <h2 id="helpDialogTitle">Merge Similar</h2>
       <button class="icon-btn" id="helpDialogClose" type="button" title="Close" aria-label="Close">✕</button>
     </div>
-    <p class="sub">A review of this list for filters that can be combined or removed, to free up space at Gmail’s 1,000-filter limit. Nothing changes until you apply a fix — each one is listed separately, and the report refreshes after each one. Download the XML first as a backup. A merge also matches future senders from that domain, not just the ones listed.</p>
+    <p class="sub">A review of this list for filters that can be combined or removed, to free up space at Gmail’s 1,000-filter limit. Nothing changes until you apply a fix — each one is listed separately, and the report refreshes after each one. Download the XML first as a backup. Filters from the same company’s subdomains (mail8, notifications5, savings1…) merge together; a merge also matches future senders from those subdomains, not just the ones listed.</p>
     <p class="help-summary" id="helpSummary"></p>
     <div id="helpResults"></div>
     <div class="builder-actions">
@@ -1746,8 +1746,16 @@
   function mergeKey(f){
     var dom = domainOf(f);
     if (!dom) return null;
+    // Group by the registrable domain, not the full host: a sender
+    // like mail@mail8.creditkarma.com and one like
+    // notifications@notifications5.creditkarma.com are the same
+    // company, and their filters should merge together. The full
+    // host is kept separately (see mergeGroupIntoList) so the merged
+    // filter still lists each subdomain it came from.
+    var reg = registrableDomain(dom);
+    if (!reg) return null;
     // The non-From criteria must agree too, or merging would drop them.
-    return dom + "\0" + JSON.stringify([
+    return reg + "\0" + JSON.stringify([
       f.to || "", f.subject || "", f.has || "", f.hasNot || "",
       !!f.attach, !!f.excludeChats,
       f.sizeOp || "", f.sizeVal || "", f.sizeUnit || ""
@@ -1773,10 +1781,19 @@
     Object.keys(byMerge).forEach(function(k){
       var g = byMerge[k];
       if (g.length < 2) return;
-      var dom = domainOf(g[0]);
+      var reg = registrableDomain(domainOf(g[0]));
       var other = criteriaChips(g[0]).filter(function(t){ return t.indexOf("From: ") !== 0; }).join(" · ");
+      // The distinct full hosts in the group, in list order — the
+      // merged filter lists each one explicitly (see
+      // mergeGroupIntoList), so it matches exactly the senders it
+      // came from.
+      var domains = [];
+      g.forEach(function(f){
+        var d = domainOf(f);
+        if (d && domains.indexOf(d) === -1) domains.push(d);
+      });
       merges.push({
-        type: "merge", domain: dom,
+        type: "merge", domain: reg, domains: domains,
         ids: g.map(function(f){ return f.id; }),
         count: g.length,
         actions: actionChips(g[0]).join(" · "),
@@ -1809,10 +1826,26 @@
     if (group.length < 2) return false;
     var dom = domainOf(group[0]);
     if (!dom) return false;
+    // The merged From lists every distinct host the group came from.
+    // A single host stays a plain "@domain". Several hosts become an
+    // explicit OR — "{@mail8.creditkarma.com @mail4.creditkarma.com
+    // ...}" — because the sources disagree on whether Gmail's bare
+    // "@creditkarma.com" also matches its subdomains, and an explicit
+    // list matches exactly the senders it came from either way. The
+    // name follows the registrable domain's brand, so the list still
+    // reads "Creditkarma" rather than the long OR string.
+    var domains = [];
+    group.forEach(function(f){
+      var d = domainOf(f);
+      if (d && domains.indexOf(d) === -1) domains.push(d);
+    });
+    var from = domains.length === 1
+      ? "@" + domains[0]
+      : "{" + domains.map(function(d){ return "@" + d; }).join(" ") + "}";
     var firstIdx = -1;
     for (var i = 0; i < filters.length; i++) if (filters[i].id === group[0].id){ firstIdx = i; break; }
     var data = {
-      from: "@" + dom,
+      from: from,
       to: group[0].to, subject: group[0].subject, has: group[0].has, hasNot: group[0].hasNot,
       attach: group[0].attach, excludeChats: group[0].excludeChats,
       sizeOp: group[0].sizeOp, sizeVal: group[0].sizeVal, sizeUnit: group[0].sizeUnit,
@@ -1820,7 +1853,7 @@
       actions: JSON.parse(JSON.stringify(group[0].actions || {}))
     };
     var merged = normalizeFilter(data);
-    merged.name = autoName(merged);
+    merged.name = domains.length === 1 ? autoName(merged) : (suggestLabel(group[0]) || autoName(merged));
     merged.example = false;
     var idSet = {};
     group.forEach(function(f){ idSet[f.id] = true; });
@@ -2040,7 +2073,12 @@
     var frees = document.createElement("b"); frees.textContent = "Frees " + m.slotsFreed + " slot" + (m.slotsFreed === 1 ? "" : "s");
     meta.appendChild(frees);
     var note = document.createElement("span"); note.className = "help-meta-note";
-    note.textContent = " · also matches future senders from this domain.";
+    // A multi-host group merges to an explicit OR of its subdomains,
+    // so it also matches future senders from any of those subdomains
+    // — not the whole registrable domain.
+    note.textContent = (m.domains && m.domains.length > 1)
+      ? " · also matches future senders from any of these subdomains."
+      : " · also matches future senders from this domain.";
     meta.appendChild(note);
     t.appendChild(meta);
     var members = document.createElement("div"); members.className = "help-members";
