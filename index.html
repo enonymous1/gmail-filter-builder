@@ -120,6 +120,14 @@
   .help-text span{display:block;font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:2px;overflow-wrap:anywhere}
   .help-members{margin-top:6px;border-left:2px solid var(--line);padding-left:8px;display:flex;flex-direction:column;gap:1px}
   .help-text .help-members span{font-size:12px;line-height:1.45;margin-top:0}
+  .help-group-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 8px}
+  .help-group-head h3{margin:0}
+  /* The result line sits apart from the actions line, with the gain
+     in bold ink — the old single run-on span let "frees N slots"
+     and the future-senders note blend into the action list. */
+  .help-text .help-meta{margin-top:4px}
+  .help-text .help-meta b{display:inline;font-size:12.5px;color:var(--ink)}
+  .help-text .help-meta .help-meta-note{display:inline;margin-top:0}
   /* Two-column builder on wide displays: matches left, actions right. */
   @media (min-width:860px){
     dialog.builder-dialog{max-width:920px}
@@ -1761,14 +1769,15 @@
     });
     return { merges: merges, duplicates: dups };
   }
-  function applyMerge(ids){
-    // Resolve the group from the live list (a group offered before
-    // another fix ran could be stale — the review re-runs after every
-    // apply, so this is only a guard).
-    var group = ids.map(filterById).filter(function(f){ return !!f; });
-    if (group.length < 2) return;
+  function mergeGroupIntoList(group){
+    // Replace one group (already resolved to live filters) with its
+    // single domain filter, in place, without rendering. Returns
+    // false when the group can't merge — the caller decides whether
+    // to render or toast. Shared by the per-group Merge button and
+    // by Merge all, so the two can't drift apart.
+    if (group.length < 2) return false;
     var dom = domainOf(group[0]);
-    if (!dom) return;
+    if (!dom) return false;
     var firstIdx = -1;
     for (var i = 0; i < filters.length; i++) if (filters[i].id === group[0].id){ firstIdx = i; break; }
     var data = {
@@ -1786,9 +1795,37 @@
     group.forEach(function(f){ idSet[f.id] = true; });
     filters = filters.filter(function(f){ return !idSet[f.id]; });
     filters.splice(firstIdx < 0 ? filters.length : firstIdx, 0, merged);
+    return true;
+  }
+  function applyMerge(ids){
+    // Resolve the group from the live list (a group offered before
+    // another fix ran could be stale — the review re-runs after every
+    // apply, so this is only a guard).
+    var group = ids.map(filterById).filter(function(f){ return !!f; });
+    if (!mergeGroupIntoList(group)) return;
     render();
     renderHelpFindings();
     showToast("Merged " + group.length + " filters into one — freed " + (group.length - 1) + " slot" + (group.length - 1 === 1 ? "" : "s") + ".");
+  }
+  function applyAllMerges(){
+    // One click for the whole report: merge every group, then render
+    // once. The groups are disjoint (a filter has one merge key), so
+    // one merge can't touch another group's filters, and each group
+    // is re-resolved from the live list as it's applied. A confirm
+    // stands in front of it — this is a bulk change with no undo,
+    // the same class as Clear all.
+    var opp = findHelpOpportunities(exportableFilters());
+    if (!opp.merges.length) return;
+    var total = 0, freed = 0;
+    opp.merges.forEach(function(m){ total += m.count; freed += m.slotsFreed; });
+    if (!window.confirm("Merge all " + opp.merges.length + " groups into " + opp.merges.length + " filters? This frees " + freed + " slots. The merged filters will also match future senders from those domains. This can’t be undone — download the XML first if you haven’t.")) return;
+    opp.merges.forEach(function(m){
+      var group = m.ids.map(filterById).filter(function(f){ return !!f; });
+      mergeGroupIntoList(group);
+    });
+    render();
+    renderHelpFindings();
+    showToast("Merged " + total + " filters into " + opp.merges.length + " — freed " + freed + " slots.");
   }
   function applyDuplicates(ids){
     var group = ids.map(filterById).filter(function(f){ return !!f; });
@@ -1805,9 +1842,18 @@
     var badge = document.createElement("span"); badge.className = "help-badge merge"; badge.textContent = "Merge"; row.appendChild(badge);
     var t = document.createElement("div"); t.className = "help-text";
     var b = document.createElement("b"); b.textContent = m.count + " filters from @" + m.domain; b.title = b.textContent; t.appendChild(b);
-    var s = document.createElement("span");
-    s.textContent = m.actions + (m.criteria ? " · " + m.criteria : "") + " — frees " + m.slotsFreed + " slot" + (m.slotsFreed === 1 ? "" : "s") + ". Also matches future senders from this domain.";
-    t.appendChild(s);
+    // Two lines, so the result doesn't blend into the actions: what
+    // the merged filter does, then what applying it costs and gains.
+    var acts = document.createElement("span"); acts.className = "help-actions";
+    acts.textContent = m.actions + (m.criteria ? " · " + m.criteria : "");
+    t.appendChild(acts);
+    var meta = document.createElement("span"); meta.className = "help-meta";
+    var frees = document.createElement("b"); frees.textContent = "Frees " + m.slotsFreed + " slot" + (m.slotsFreed === 1 ? "" : "s");
+    meta.appendChild(frees);
+    var note = document.createElement("span"); note.className = "help-meta-note";
+    note.textContent = " · also matches future senders from this domain.";
+    meta.appendChild(note);
+    t.appendChild(meta);
     var members = document.createElement("div"); members.className = "help-members";
     m.members.forEach(function(from){
       var line = document.createElement("span"); line.textContent = from; line.title = from; members.appendChild(line);
@@ -1824,9 +1870,15 @@
     var badge = document.createElement("span"); badge.className = "help-badge duplicate"; badge.textContent = "Duplicate"; row.appendChild(badge);
     var t = document.createElement("div"); t.className = "help-text";
     var b = document.createElement("b"); b.textContent = d.name; b.title = d.name; t.appendChild(b);
-    var s = document.createElement("span");
-    s.textContent = d.count + " identical filters — keep one, remove the rest. Frees " + d.slotsFreed + " slot" + (d.slotsFreed === 1 ? "" : "s") + ".";
-    t.appendChild(s);
+    // Same two-line split as a merge row: what it is, then what
+    // removing it gains.
+    var desc = document.createElement("span"); desc.className = "help-actions";
+    desc.textContent = d.count + " identical filters — keep one, remove the rest.";
+    t.appendChild(desc);
+    var meta = document.createElement("span"); meta.className = "help-meta";
+    var frees = document.createElement("b"); frees.textContent = "Frees " + d.slotsFreed + " slot" + (d.slotsFreed === 1 ? "" : "s");
+    meta.appendChild(frees);
+    t.appendChild(meta);
     row.appendChild(t);
     var apply = document.createElement("button"); apply.type = "button"; apply.className = "btn small"; apply.textContent = "Keep one";
     apply.addEventListener("click", function(){ applyDuplicates(d.ids); });
@@ -1852,7 +1904,12 @@
     summary.textContent = opp.merges.length + " mergeable group" + (opp.merges.length === 1 ? "" : "s") + " (frees " + mergeSlots + " slot" + (mergeSlots === 1 ? "" : "s") + ") · " + opp.duplicates.length + " duplicate set" + (opp.duplicates.length === 1 ? "" : "s") + " (frees " + dupSlots + " slot" + (dupSlots === 1 ? "" : "s") + ") — " + list.length + " filters checked.";
     if (opp.merges.length){
       var g = document.createElement("div"); g.className = "help-group";
-      var h = document.createElement("h3"); h.textContent = "Merge into one filter"; g.appendChild(h);
+      var head = document.createElement("div"); head.className = "help-group-head";
+      var h = document.createElement("h3"); h.textContent = "Merge into one filter"; head.appendChild(h);
+      var all = document.createElement("button"); all.type = "button"; all.className = "btn small"; all.textContent = "Merge all (" + opp.merges.length + ")";
+      all.addEventListener("click", function(){ applyAllMerges(); });
+      head.appendChild(all);
+      g.appendChild(head);
       var grid = document.createElement("div"); grid.className = "help-grid";
       opp.merges.forEach(function(m){ grid.appendChild(helpMergeRow(m)); });
       g.appendChild(grid);
@@ -2058,6 +2115,7 @@
       openHelpDialog: openHelpDialog,
       getHelpDialog: function(){ return helpDialog; },
       applyMerge: applyMerge, applyDuplicates: applyDuplicates,
+      applyAllMerges: applyAllMerges,
       setViewMode: setViewMode, getViewMode: function(){ return viewMode; },
       setTableSort: setTableSort, getTableSort: function(){ return tableSort; },
       loadExamples: loadExamples,

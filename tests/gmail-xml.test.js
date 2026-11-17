@@ -910,9 +910,19 @@ test("help dialog lists the groups and applying one refreshes the report", () =>
   const row = grid.children[0];
   assert.equal(row.children[0].textContent, "Merge");
   assert.ok(row.children[1].children[0].textContent.indexOf("@x.com") !== -1);
+  // The actions and the result are separate lines now, so the gain
+  // doesn't blend into the action list: the actions line, then a
+  // meta line whose bold part is the slots freed.
+  assert.equal(row.children[1].children[1].textContent, "Skip Inbox · Label: News");
+  const meta = row.children[1].children[2];
+  assert.equal(meta.className, "help-meta");
+  assert.equal(meta.children[0].textContent, "Frees 2 slots");
+  // The stub's textContent doesn't aggregate children, so read the
+  // note span itself.
+  assert.ok(meta.children[1].textContent.indexOf("also matches future senders") !== -1);
   // The row lists the senders being merged, in list order, so the
   // user can see what the one filter replaces.
-  const members = row.children[1].children[2];
+  const members = row.children[1].children[3];
   assert.equal(members.className, "help-members");
   assert.equal(members.children.length, 3);
   assert.equal(members.children[0].textContent, "a@x.com");
@@ -944,4 +954,72 @@ test("help grid uses minmax(0,1fr) so long names can't blow it out", () => {
   assert.match(html, /\.help-grid\{grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)\}/);
   assert.match(html, /\.help-row\{[^}]*min-width:0/);
   assert.match(html, /dialog\.help-dialog\{max-width:920px\}/);
+});
+
+test("merge all applies every group and leaves the report clean", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const mk = (data) => app.normalizeFilter(data);
+  app.setFilters([
+    mk({ from: "a@x.com", actions: { skip: true, label: "News" } }),
+    mk({ from: "b@x.com", actions: { skip: true, label: "News" } }),
+    mk({ from: "a@y.com", actions: { star: true } }),
+    mk({ from: "b@y.com", actions: { star: true } }),
+    mk({ from: "c@y.com", actions: { star: true } }),
+  ]);
+  app._setConfirm(true);
+  app.openHelpDialog();
+  app.applyAllMerges();
+  const after = app.getFilters();
+  assert.equal(after.length, 2);
+  // One domain filter per group, in list order.
+  assert.equal(after[0].from, "@x.com");
+  assert.equal(after[1].from, "@y.com");
+  assert.ok(doc.getElementById("helpSummary").textContent.indexOf("No merges or duplicates") !== -1);
+});
+
+test("merge all asks first and a no leaves the list untouched", () => {
+  const app = runApp(makeStorage());
+  const mk = (data) => app.normalizeFilter(data);
+  app.setFilters([
+    mk({ from: "a@x.com", actions: { skip: true } }),
+    mk({ from: "b@x.com", actions: { skip: true } }),
+  ]);
+  app._setConfirm(false);
+  app.applyAllMerges();
+  assert.equal(app.getFilters().length, 2);
+  assert.equal(app.getFilters()[0].from, "a@x.com");
+});
+
+test("the merge group header carries a Merge all button with the count", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const mk = (data) => app.normalizeFilter(data);
+  app.setFilters([
+    mk({ from: "a@x.com", actions: { skip: true } }),
+    mk({ from: "b@x.com", actions: { skip: true } }),
+    mk({ from: "a@y.com", actions: { star: true } }),
+    mk({ from: "b@y.com", actions: { star: true } }),
+  ]);
+  app._setConfirm(true);
+  app.openHelpDialog();
+  const results = doc.getElementById("helpResults");
+  const head = results.children[0].children[0]; // merge group → its head
+  assert.equal(head.className, "help-group-head");
+  assert.equal(head.children[0].textContent, "Merge into one filter");
+  const all = head.children[1];
+  assert.equal(all.textContent, "Merge all (2)");
+  // Click it — both groups merge at once.
+  all._listeners.click[0]();
+  assert.equal(app.getFilters().length, 2);
+  assert.equal(app.getFilters()[0].from, "@x.com");
+  assert.equal(app.getFilters()[1].from, "@y.com");
+});
+
+test("help meta line is styled apart from the actions line", () => {
+  const html = fs.readFileSync(INDEX, "utf8");
+  assert.match(html, /\.help-text \.help-meta\{margin-top:4px\}/);
+  assert.match(html, /\.help-text \.help-meta b\{display:inline;font-size:12\.5px;color:var\(--ink\)\}/);
+  assert.match(html, /\.help-text \.help-meta \.help-meta-note\{display:inline;margin-top:0\}/);
+  assert.match(html, /\.help-group-head\{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 8px\}/);
 });
