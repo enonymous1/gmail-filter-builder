@@ -62,6 +62,8 @@
   .hero-main h1 em{font-style:normal;color:var(--red)}
   .hero-main p{margin:0;color:var(--muted);font-size:16.5px;line-height:1.6;max-width:56ch}
   .hero-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+  .hero-hint{font-size:13px;color:var(--muted);line-height:1.55;margin:10px 0 0}
+  .hero-hint b{color:var(--ink)}
   .btn{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:10px 18px;font-weight:700;font-size:14.5px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none;transition:transform .12s ease,border-color .12s ease}
   .btn:hover{border-color:var(--faint)}
   .btn:active{transform:scale(.98)}
@@ -335,8 +337,9 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
           Start building
         </button>
-        <a class="btn ghost" href="https://mail.google.com/mail/u/0/#settings/filters" target="_blank" rel="noopener">Open Gmail’s filter settings ↗</a>
+        <a class="btn ghost" href="https://mail.google.com/mail/u/0/" target="_blank" rel="noopener">Open Gmail ↗</a>
       </div>
+      <p class="hero-hint">Then in Gmail: gear icon → <b>See all settings</b> → <b>Filters and Blocked Addresses</b> → <b>Import filters</b>.</p>
     </div>
     <div class="hero-side">
       <h2>How the round trip works</h2>

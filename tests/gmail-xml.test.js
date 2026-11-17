@@ -341,6 +341,17 @@ test("view row (toggle + count) hides when the list is empty", () => {
   assert.match(doc.getElementById("filterCount").innerHTML, /<b>1<\/b> \/ 1000/);
 });
 
+test("hero Gmail link opens the inbox, not the broken settings deep link", () => {
+  const html = fs.readFileSync(INDEX, "utf8");
+  // The #settings/filters deep link loads a broken settings view Gmail
+  // can't navigate out of, so the button opens the plain inbox instead
+  // and the hint next to it gives the path to the filters tab.
+  assert.ok(!html.includes("#settings/filters"));
+  assert.match(html, /href="https:\/\/mail\.google\.com\/mail\/u\/0\/"/);
+  assert.match(html, /Open Gmail ↗/);
+  assert.match(html, /Then in Gmail: gear icon → <b>See all settings<\/b> → <b>Filters and Blocked Addresses<\/b> → <b>Import filters<\/b>/);
+});
+
 test("primary button is green and the dialog delete button is filled red", () => {
   const html = fs.readFileSync(INDEX, "utf8");
   assert.match(html, /\.btn\.primary\{background:var\(--green\);border-color:var\(--green\);color:#fff\}/);
