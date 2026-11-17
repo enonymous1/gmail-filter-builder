@@ -115,7 +115,6 @@
   .help-badge{flex:none;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:3px 8px;margin-top:1px}
   .help-badge.merge{color:var(--blue);background:var(--blue-soft)}
   .help-badge.duplicate{color:var(--yellow);background:var(--yellow-soft)}
-  .help-badge.rename{color:var(--green);background:var(--green-soft)}
   .help-badge.nolabel{color:var(--yellow);background:var(--yellow-soft)}
   .help-text{flex:1;min-width:0}
   .help-text b{display:block;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -494,7 +493,7 @@
       <h2 id="helpDialogTitle">Help me out</h2>
       <button class="icon-btn" id="helpDialogClose" type="button" title="Close" aria-label="Close">✕</button>
     </div>
-    <p class="sub">A review of this list for filters that can be combined, renamed, or removed, to free up space at Gmail’s 1,000-filter limit — and for filters that don’t apply a label, since that’s what most filters here are for. Nothing changes until you apply a fix — each one is listed separately, and the report refreshes after each one. Download the XML first as a backup. A merge also matches future senders from that domain, not just the ones listed. Renaming only changes the name shown here; it doesn’t apply a label.</p>
+    <p class="sub">A review of this list for filters that can be combined or removed, to free up space at Gmail’s 1,000-filter limit — and for filters that don’t apply a label, since that’s what most filters here are for. Nothing changes until you apply a fix — each one is listed separately, and the report refreshes after each one. Download the XML first as a backup. A merge also matches future senders from that domain, not just the ones listed.</p>
     <p class="help-summary" id="helpSummary"></p>
     <div id="helpResults"></div>
     <div class="builder-actions">
@@ -1830,98 +1829,14 @@
     showToast("Merged " + total + " filters into " + opp.merges.length + " — freed " + freed + " slots.");
   }
 
-  /* ---------- Brand renames + no-label info ---------- */
-  // A filter's name is only ever shown here — Gmail's filter XML
-  // has no name field (buildXML writes criteria and actions only),
-  // so renaming never changes what Gmail does. It only makes the
-  // list readable. A rename is offered for a filter with no label
-  // (a labeled one already shows its label as its name) whose
-  // displayed name is just "From <address>" — a custom name is left
-  // alone — and whose sender derives to a brand.
-  function registrableDomain(domain){
-    // Strip subdomains, keeping the registrable part. A short list
-    // of two-part public suffixes keeps "amazon.co.uk" from
-    // becoming "co.uk".
-    var TWO_PART = ["co.uk","org.uk","ac.uk","gov.uk","com.au","net.au","org.au","co.jp","co.nz","com.br","co.in","co.za","com.mx","co.kr"];
-    var parts = (domain || "").toLowerCase().split(".").filter(function(p){ return !!p; });
-    if (!parts.length) return null;
-    if (parts.length >= 3 && TWO_PART.indexOf(parts.slice(-2).join(".")) !== -1) return parts.slice(-3).join(".");
-    return parts.slice(-2).join(".");
-  }
-  function deriveBrand(f){
-    // A brand name from the sender: the registrable domain's first
-    // label, title-cased. Short labels (3 letters or fewer) are
-    // uppercased — they're usually acronyms (CVS, IRS, UPS, AOL).
-    // A heuristic: "Creditkarma", not "Credit Karma". The user
-    // reviews each proposed rename before applying it.
-    var dom = domainOf(f);
-    if (!dom) return null;
-    var reg = registrableDomain(dom);
-    if (!reg) return null;
-    var label = reg.split(".")[0];
-    if (!label) return null;
-    if (label.length <= 3) return label.toUpperCase();
-    return label.charAt(0).toUpperCase() + label.slice(1);
-  }
-  function findRenameOpportunities(list){
-    var byBrand = {};
-    list.forEach(function(f){
-      if (f.actions.label) return; // already shows its label as its name
-      if (autoName(f) !== "From " + f.from) return; // a custom name — leave it
-      var brand = deriveBrand(f);
-      if (!brand) return;
-      (byBrand[brand] = byBrand[brand] || []).push(f);
-    });
-    var groups = [];
-    Object.keys(byBrand).sort().forEach(function(brand){
-      var g = byBrand[brand];
-      groups.push({
-        type: "rename", brand: brand,
-        ids: g.map(function(f){ return f.id; }),
-        count: g.length,
-        members: g.map(function(f){ return f.from; })
-      });
-    });
-    return groups;
-  }
+  /* ---------- No-label info ---------- */
+  // The name is only ever shown here — Gmail's filter XML has no
+  // name field — so a rename would be a local display change only
+  // and doesn't belong in this report (removed 2026-11-16). What
+  // does belong is whether a filter applies a label at all, since
+  // that's what most filters here are for.
   function noLabelFilters(list){
     return list.filter(function(f){ return !f.actions.label; });
-  }
-  function renameGroupIntoList(group, brand){
-    // Set every filter in the group to the derived brand name, in
-    // place, without rendering. Shared by the per-group Rename
-    // button and by Rename all, so the two can't drift apart.
-    var renamed = false;
-    group.forEach(function(f){
-      if (f.name !== brand){ f.name = brand; renamed = true; }
-    });
-    return renamed;
-  }
-  function applyRename(ids, brand){
-    var group = ids.map(filterById).filter(function(f){ return !!f; });
-    if (!group.length) return;
-    if (!renameGroupIntoList(group, brand)) return;
-    render();
-    renderHelpFindings();
-    showToast("Renamed " + group.length + " filter" + (group.length === 1 ? "" : "s") + " to “" + brand + "”.");
-  }
-  function applyAllRenames(){
-    // Rename every brand group, then render once. A confirm stands
-    // in front of it — a bulk change with no undo, the same class
-    // as Merge all — and it says plainly that renaming doesn't
-    // apply a label.
-    var groups = findRenameOpportunities(exportableFilters());
-    if (!groups.length) return;
-    var total = 0;
-    groups.forEach(function(g){ total += g.count; });
-    if (!window.confirm("Rename " + total + " filter" + (total === 1 ? "" : "s") + " to their derived brand" + (groups.length === 1 ? "" : "s") + "? This only changes the name shown here — it doesn't apply a label. This can’t be undone — download the XML first if you haven’t.")) return;
-    groups.forEach(function(g){
-      var group = g.ids.map(filterById).filter(function(f){ return !!f; });
-      renameGroupIntoList(group, g.brand);
-    });
-    render();
-    renderHelpFindings();
-    showToast("Renamed " + total + " filter" + (total === 1 ? "" : "s") + " to their brands.");
   }
   function revealHelpFilter(id){
     // Open the filter itself in the builder dialog — the same detail
@@ -1991,27 +1906,6 @@
     row.appendChild(apply);
     return row;
   }
-  function helpRenameRow(g){
-    var row = document.createElement("div"); row.className = "help-row";
-    var badge = document.createElement("span"); badge.className = "help-badge rename"; badge.textContent = "Rename"; row.appendChild(badge);
-    var t = document.createElement("div"); t.className = "help-text";
-    var b = document.createElement("b"); b.textContent = g.count + " filter" + (g.count === 1 ? "" : "s") + " → " + g.brand; b.title = b.textContent; t.appendChild(b);
-    // Renaming only changes the name shown here — it doesn't apply
-    // a label. Say so on the row, or the rename reads as a label.
-    var meta = document.createElement("span"); meta.className = "help-meta";
-    meta.textContent = "Only the name shown here — it doesn't apply a label.";
-    t.appendChild(meta);
-    var members = document.createElement("div"); members.className = "help-members";
-    g.members.forEach(function(from){
-      var line = document.createElement("span"); line.textContent = from; line.title = from; members.appendChild(line);
-    });
-    t.appendChild(members);
-    row.appendChild(t);
-    var apply = document.createElement("button"); apply.type = "button"; apply.className = "btn small"; apply.textContent = "Rename";
-    apply.addEventListener("click", function(){ applyRename(g.ids, g.brand); });
-    row.appendChild(apply);
-    return row;
-  }
   function helpNoLabelRow(f){
     var row = document.createElement("div"); row.className = "help-row";
     var badge = document.createElement("span"); badge.className = "help-badge nolabel"; badge.textContent = "No label"; row.appendChild(badge);
@@ -2037,23 +1931,20 @@
     box.innerHTML = "";
     var list = exportableFilters();
     var opp = findHelpOpportunities(list);
-    var renames = findRenameOpportunities(list);
     var noLabel = noLabelFilters(list);
-    var mergeSlots = 0, dupSlots = 0, renameCount = 0;
+    var mergeSlots = 0, dupSlots = 0;
     opp.merges.forEach(function(m){ mergeSlots += m.slotsFreed; });
     opp.duplicates.forEach(function(d){ dupSlots += d.slotsFreed; });
-    renames.forEach(function(g){ renameCount += g.count; });
-    if (!opp.merges.length && !opp.duplicates.length && !renames.length && !noLabel.length){
-      summary.textContent = "No merges, duplicates, or renames found in " + list.length + " filter" + (list.length === 1 ? "" : "s") + ", and every filter applies a label.";
+    if (!opp.merges.length && !opp.duplicates.length && !noLabel.length){
+      summary.textContent = "No merges or duplicates found in " + list.length + " filter" + (list.length === 1 ? "" : "s") + ", and every filter applies a label.";
       var ok = document.createElement("p"); ok.className = "sub";
-      ok.textContent = "Every filter is already the only one for its sender and actions, has a readable name, and applies a label — nothing to combine, rename, or fix.";
+      ok.textContent = "Every filter is already the only one for its sender and actions, and applies a label — nothing to combine, remove, or fix.";
       box.appendChild(ok);
       return;
     }
     var parts = [];
     parts.push(opp.merges.length + " mergeable group" + (opp.merges.length === 1 ? "" : "s") + " (frees " + mergeSlots + " slot" + (mergeSlots === 1 ? "" : "s") + ")");
     parts.push(opp.duplicates.length + " duplicate set" + (opp.duplicates.length === 1 ? "" : "s") + " (frees " + dupSlots + " slot" + (dupSlots === 1 ? "" : "s") + ")");
-    if (renameCount) parts.push(renameCount + " filter" + (renameCount === 1 ? "" : "s") + " can be renamed to a brand");
     if (noLabel.length) parts.push(noLabel.length + " filter" + (noLabel.length === 1 ? "" : "s") + " without a label");
     summary.textContent = parts.join(" · ") + " — " + list.length + " filters checked.";
     if (opp.merges.length){
@@ -2069,19 +1960,6 @@
       g.appendChild(grid);
       box.appendChild(g);
     }
-    if (renames.length){
-      var g3 = document.createElement("div"); g3.className = "help-group";
-      var head3 = document.createElement("div"); head3.className = "help-group-head";
-      var h3 = document.createElement("h3"); h3.textContent = "Rename to a brand"; head3.appendChild(h3);
-      var all3 = document.createElement("button"); all3.type = "button"; all3.className = "btn small"; all3.textContent = "Rename all (" + renames.length + ")";
-      all3.addEventListener("click", function(){ applyAllRenames(); });
-      head3.appendChild(all3);
-      g3.appendChild(head3);
-      var grid3 = document.createElement("div"); grid3.className = "help-grid";
-      renames.forEach(function(r){ grid3.appendChild(helpRenameRow(r)); });
-      g3.appendChild(grid3);
-      box.appendChild(g3);
-    }
     if (opp.duplicates.length){
       var g2 = document.createElement("div"); g2.className = "help-group";
       var h2 = document.createElement("h3"); h2.textContent = "Exact duplicates"; g2.appendChild(h2);
@@ -2090,18 +1968,13 @@
       g2.appendChild(grid2);
       box.appendChild(g2);
     }
-    // No-label filters with no sender to derive a brand from — the
-    // renameable ones are already in the Rename section above, so
-    // this is the remainder that needs a manual label in the editor.
-    var unbranded = noLabel.filter(function(f){ return !deriveBrand(f); });
-    if (unbranded.length){
+    // Every filter without a label, each with a View button to open
+    // it in the editor and add one.
+    if (noLabel.length){
       var g4 = document.createElement("div"); g4.className = "help-group";
       var h4 = document.createElement("h3"); h4.textContent = "No label"; g4.appendChild(h4);
-      var note = document.createElement("p"); note.className = "sub";
-      note.textContent = "These filters don't apply a label, and there's no sender to derive a brand name from — open one to add a label. Filters with a sender appear in the Rename section above.";
-      g4.appendChild(note);
       var grid4 = document.createElement("div"); grid4.className = "help-grid";
-      unbranded.forEach(function(f){ grid4.appendChild(helpNoLabelRow(f)); });
+      noLabel.forEach(function(f){ grid4.appendChild(helpNoLabelRow(f)); });
       g4.appendChild(grid4);
       box.appendChild(g4);
     }
@@ -2294,14 +2167,11 @@
       securityCheck: securityCheck, openSecurityDialog: openSecurityDialog,
       getSecurityDialog: function(){ return securityDialog; },
       findHelpOpportunities: findHelpOpportunities,
-      deriveBrand: deriveBrand,
-      findRenameOpportunities: findRenameOpportunities,
       noLabelFilters: noLabelFilters,
       openHelpDialog: openHelpDialog,
       getHelpDialog: function(){ return helpDialog; },
       applyMerge: applyMerge, applyDuplicates: applyDuplicates,
       applyAllMerges: applyAllMerges,
-      applyRename: applyRename, applyAllRenames: applyAllRenames,
       setViewMode: setViewMode, getViewMode: function(){ return viewMode; },
       setTableSort: setTableSort, getTableSort: function(){ return tableSort; },
       loadExamples: loadExamples,
