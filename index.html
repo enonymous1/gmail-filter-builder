@@ -46,8 +46,10 @@
   .btn{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:10px 18px;font-weight:700;font-size:14.5px;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none;transition:transform .12s ease,border-color .12s ease}
   .btn:hover{border-color:var(--faint)}
   .btn:active{transform:scale(.98)}
-  .btn.primary{background:var(--red);border-color:var(--red);color:#fff}
+  .btn.primary{background:var(--green);border-color:var(--green);color:#fff}
   @media (prefers-color-scheme: dark){.btn.primary{color:#1b1e21}}
+  .btn.red{background:var(--red);border-color:var(--red);color:#fff}
+  @media (prefers-color-scheme: dark){.btn.red{color:#1b1e21}}
   .btn.blue{background:var(--blue);border-color:var(--blue);color:#fff}
   @media (prefers-color-scheme: dark){.btn.blue{color:#121416}}
   .btn.ghost{background:transparent}
@@ -91,6 +93,7 @@
   .drop-zone input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
   .btn.danger{color:var(--red);border-color:color-mix(in srgb,var(--red) 55%,transparent)}
   .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn[hidden]{display:none}
   /* ---------- Security check ---------- */
   .sec-summary{font-size:14px;font-weight:700;margin:0 0 14px}
   .sec-group{margin:0 0 18px}
@@ -397,6 +400,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
           <span id="addBtnLabel">Add filter</span>
         </button>
+        <button class="btn red" id="deleteBtn" type="button" hidden>Delete</button>
         <button class="btn" id="clearBtn" type="button">Clear</button>
         <button class="btn" id="cancelBtn" type="button">Cancel</button>
       </div>
@@ -819,6 +823,7 @@
     editingId = f.id;
     $("builderTitle").textContent = "Edit filter";
     $("addBtnLabel").textContent = "Save changes";
+    $("deleteBtn").hidden = false;
     loadIntoBuilder(f);
     openDialog(opener);
   }
@@ -908,6 +913,7 @@
     editingId = null;
     $("builderTitle").textContent = "New filter";
     $("addBtnLabel").textContent = "Add filter";
+    $("deleteBtn").hidden = true;
     loadIntoBuilder({actions:{}});
     hideError();
   }
@@ -1008,6 +1014,12 @@
     clearBuilder(); render(); dialog.close();
   });
   $("clearBtn").addEventListener("click", clearBuilder);
+  $("deleteBtn").addEventListener("click", function(){
+    // Same as the card Delete: no confirm, just remove it and toast.
+    if (!editingId) return;
+    filters = filters.filter(function(x){ return x.id !== editingId; });
+    clearBuilder(); render(); dialog.close(); showToast("Filter removed.");
+  });
 
   /* ---------- Render filter list ---------- */
   // Category display names live in SMART_LABELS (Gmail contract block above) — do not duplicate the table here.

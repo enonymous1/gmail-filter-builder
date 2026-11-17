@@ -227,6 +227,30 @@ test("modal: New filter opens a clean dialog; Edit loads the filter into it", ()
   assert.equal(doc.getElementById("fFrom").value, "");
 });
 
+test("dialog delete button: hidden for New, shown for Edit; deleting removes the filter", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const f = app.normalizeFilter({ name: "VIP", from: "boss@example.com", actions: { star: true } });
+  app.setFilters([f]);
+  // New filter: no delete button — there is nothing to delete yet.
+  app.openNewFilter();
+  assert.equal(doc.getElementById("deleteBtn").hidden, true);
+  // Edit: the delete button shows, and deleting removes the filter.
+  app.openEditFilter(f);
+  assert.equal(doc.getElementById("deleteBtn").hidden, false);
+  doc.getElementById("deleteBtn")._listeners.click[0]();
+  assert.equal(app.getFilters().length, 0);
+  assert.equal(app.getDialog().open, false);
+  assert.equal(doc.getElementById("deleteBtn").hidden, true);
+});
+
+test("primary button is green and the dialog delete button is filled red", () => {
+  const html = fs.readFileSync(INDEX, "utf8");
+  assert.match(html, /\.btn\.primary\{background:var\(--green\);border-color:var\(--green\);color:#fff\}/);
+  assert.match(html, /\.btn\.red\{background:var\(--red\);border-color:var\(--red\);color:#fff\}/);
+  assert.match(html, /\.btn\[hidden\]\{display:none\}/);
+});
+
 test("examples never export; import replaces them only when it brings filters", () => {
   const app = runApp(makeStorage());
   const doc = app._document;
