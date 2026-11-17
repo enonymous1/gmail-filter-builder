@@ -13,7 +13,7 @@ Build Gmail filters by filling in a form — no account, no sign-in, no server. 
 
 ## Description
 
-Gmail's filter settings are a wall of small text fields. This app turns them into something you can see: pick what a message matches (From, To, Subject, Has the words, Doesn't have, Has attachment, Size) and what Gmail should do with it (Skip the Inbox, Mark as read, Star it, Apply a label, Categorize as, Forward it to, Delete it, Never send to Spam, Always / Never mark as important), stack up as many filters as you need, drag the cards to reorder them, and export the set as Gmail's own import file.
+Gmail's filter settings are a wall of small text fields. This app turns them into something you can see: pick what a message matches (From, To, Subject, Has the words, Doesn't have, Has attachment, Size) and what Gmail should do with it (Skip the Inbox, Mark as read, Star it, Apply a label, Categorize as, Forward it to, Delete it, Never send to Spam, Always / Never mark as important), stack up as many filters as you need, and export the set as Gmail's own import file.
 
 The export uses Gmail's own filter format — an Atom feed with one `<entry>` per filter and `apps:property` entries for each criterion and action (for example `shouldArchive` for Skip the Inbox, and `size` + `sizeOperator` + `sizeUnit` for a size condition). That is the exact format Gmail produces under **Export filters** and accepts under **Import filters**, so a file from this app imports cleanly and can be re-exported later. The app can also read a Gmail export back in, so you can edit your existing filters here and re-export them.
 
@@ -25,8 +25,8 @@ Everything runs locally in your browser. There is no backend, no account, and no
 - Five one-tap templates: Newsletters, Receipts & invoices, Social notifications, Big attachments, VIP sender
 - Five starter examples — one for each template — show the shape of a filter; they are demo data only: importing your own filters replaces them, and they are never written to an export
 - Live Gmail-search preview for the filter you are building (`from:(…) subject:(…) larger:10M …`)
-- Filter list with drag-to-reorder, edit, duplicate, and delete
-- Numbered cards: each card shows its position in the export (1, 2, 3…), so the order you see is the order Gmail lists them in
+- Filter list with edit, duplicate, and delete. List order is the order filters were added or imported in; each card shows its position in the export (1, 2, 3…), so the order you see is the order Gmail lists them in
+- Cards / Table view toggle (cards are the default): the table shows # | Name | Matches | Actions | Edit Duplicate Delete, with Matches and Actions as pills capped at two rows, and sorting by # or Name (view-only — it never changes the model or the export)
 - Action pills: a card above the list shows how many filters use each action — tap one to narrow the cards to that action (tap again to clear); view-only, so order and export are unchanged
 - Search: a box under the action pills filters the cards as you type — name, address, subject, label, or any word in the Gmail search text; it combines with the action pills
 - Export as `gmail-filters.xml` (download or copy to clipboard), with a live XML preview
@@ -34,14 +34,21 @@ Everything runs locally in your browser. There is no backend, no account, and no
 - Clear all: one button empties the list, with a confirm first (even for just the starter examples); a cleared list stays empty on reload
 - System-aware light / dark theme; responsive down to mobile widths, with the filter list in two columns on wide displays
 
+### Review tools
+
+For a list imported from Gmail — especially one near the 1,000-filter limit — three toolbar buttons review it and offer fixes. Nothing changes until you apply a fix; each one is listed separately, and the report refreshes after each one. Download the XML first as a backup.
+
+- **Security check:** a heuristic review of the exportable filters. High risk: forwards mail to another address, or matches all mail and then deletes, hides, or forwards it. Medium risk: hides or deletes mail from sensitive senders (bank, password, security, …), or Never Spam + Skip Inbox together. Each finding has a View button that opens the filter in the editor so you can fix it there. The check never changes or deletes anything.
+- **Merge Similar:** finds filters that can be combined or removed to free up space. *Merge:* same registrable domain + same other criteria + same actions → one filter (filters from a company's subdomains, like mail8/mail4/notifications5.creditkarma.com, merge together; the merged From lists each subdomain explicitly as an OR, and also matches future senders from those subdomains). *Exact duplicates:* identical criteria + actions → keep one. Each group has a Merge / Keep one button, and a Merge all button merges every group after a confirm.
+- **Missing labels:** lists every filter that doesn't apply a label, and suggests one derived from the sender (the registrable domain, title-cased — "Creditkarma", "Apple", "ONE"). Each row has an Apply button and a View button; a filter with no sender gets View only. An Apply all button applies every suggestion after a confirm. Applying a label is a real change — it adds the label action, so the XML Gmail imports carries it.
+
 ### Known limitations
 
 - **Autosave is local only.** The list autosaves to this browser's `localStorage` and survives refreshes, but there is no account, sync, or JSON backup yet — the XML download is still the durable copy. Clear your browser data and the working copy is gone.
 - **Gmail's 1,000-filter limit is enforced in the app.** The toolbar shows `n / 1000`, and adding past 1,000 is refused with an error. Editing an existing filter at the limit still works.
 - **Import reports what it skips.** Unknown properties and entries with no match criteria are skipped with a reason instead of silently vanishing. Multi-label filters and `excludeChats` now round-trip.
-- **No duplicate detection yet.** Importing the same file twice doubles the list.
-- **Reordering is drag-and-drop only.** There is no keyboard path to move a filter up or down yet.
-- **Large lists are slow.** The list re-renders in full on every change; lists of several hundred filters work, but there is no virtualization. See [Staff review](docs/STAFF-REVIEW.md) for the full list.
+- **No duplicate detection at import time yet.** Importing the same file twice doubles the list. Use **Merge Similar** afterwards to combine or remove the duplicates.
+- **Large lists have no virtualization.** Cards and table rows are persistent elements keyed by filter id, so filtering and searching don't rebuild the list, but a 1,000-filter list still keeps 1,000 elements in the DOM. See [Staff review](docs/STAFF-REVIEW.md) for the full list.
 
 ## Prerequisites
 
@@ -72,7 +79,8 @@ gmail-filter-builder/
 ├── tests/
 │   └── gmail-xml.test.js # node:test, zero deps: XML contract, validation, persistence
 └── docs/
-    ├── STAFF-REVIEW.md   # Staff-level code review (2026-11-13) with prioritized fixes
+    ├── STAFF-REVIEW.md   # Staff-level code review (2026-11-13) with dated notes per change
+    ├── GAS-VERSION.md    # Sketch of a Google Apps Script companion deployment (not built)
     └── assets/
         ├── architecture.svg   # Data-flow diagram (referenced below)
         ├── hero.png           # Screenshot — capture before publishing (see shot list)
@@ -103,16 +111,16 @@ There is no build and no watcher. There is a test runner: the Gmail XML contract
 node --test tests/gmail-xml.test.js
 ```
 
-CI runs the same command on every push and pull request (`.github/workflows/test.yml`). Edit `index.html`, refresh the browser, and check the change — and run the tests whenever you touch `propsFor()`, `parseFiltersFromXML()`, `validateFilter()`, or the filter model. The remaining architectural weakness the staff review calls out is that the app is one ~1,200-line file with no modules and no types, so the review proposes splitting it into modules before the next feature lands.
+CI runs the same command on every push and pull request (`.github/workflows/test.yml`). Edit `index.html`, refresh the browser, and check the change — and run the tests whenever you touch `propsFor()`, `parseFiltersFromXML()`, `validateFilter()`, or the filter model. The remaining architectural weakness the staff review calls out is that the app is one ~2,400-line file with no modules and no types, so the review proposes splitting it into modules before the next feature lands.
 
 ### Manual smoke checklist
 
 1. Load the **Newsletters** template (the builder dialog opens), tap **Add filter** — the dialog closes, a third card appears, and the XML preview regenerates.
-2. Drag a filter card above another — the order changes and the XML entry order follows it.
-3. Click **Download .xml** — the file contains `<feed xmlns="http://www.w3.org/2005/Atom">`, `<title>Mail Filters</title>`, and `shouldArchive` (not `shouldSkipArchive`) for a Skip-Inbox filter.
-4. Import that same file back via **Import Filters** (drop the file or paste the XML) — the dialog closes and the filters reappear with Skip Inbox and size intact.
-5. Try adding a filter with no match and no action — the form shows an error and adds nothing.
-6. Toggle the OS light/dark theme — the page follows it, with no unreadable text in either mode.
+2. Click **Download .xml** — the file contains `<feed xmlns="http://www.w3.org/2005/Atom">`, `<title>Mail Filters</title>`, and `shouldArchive` (not `shouldSkipArchive`) for a Skip-Inbox filter.
+3. Import that same file back via **Import Filters** (drop the file or paste the XML) — the dialog closes and the filters reappear with Skip Inbox and size intact.
+4. Try adding a filter with no match and no action — the form shows an error and adds nothing.
+5. Toggle the OS light/dark theme — the page follows it, with no unreadable text in either mode.
+6. Switch the list to **Table** view — the same filters appear as rows, and switching back to Cards shows the cards again.
 
 ## Deployment
 
@@ -132,15 +140,14 @@ Upload `index.html` (and `.nojekyll`, if the host is GitHub Pages) to the host's
 
 <!-- ANIMATED GIF — docs/assets/round-trip.gif (max 15 s, 1280×720)
      Place here, at the top of Usage. Must show the full round trip, no cuts:
-     load the Newsletters template → Add filter → drag the new card above the
-     first → Download .xml → open Gmail Settings → Filters and Blocked
-     Addresses → Import filters → the new filter appears. Record it on the
-     real site with real Gmail; do not mock it.
+     load the Newsletters template → Add filter → Download .xml → open Gmail
+     Settings → Filters and Blocked Addresses → Import filters → the new
+     filter appears. Record it on the real site with real Gmail; do not mock it.
      Replace this comment with: ![Full round trip: build a filter, export it, import it into Gmail](docs/assets/round-trip.gif) -->
 
 1. Open the site.
 2. Click **New filter** (or tap a template, or **Edit** on a card) to open the builder dialog. Fill it in, or edit what the template loaded.
-3. Click **Add filter** (or **Save changes** when editing) — the dialog closes and the card joins the list. Drag filter cards to reorder them, or edit, duplicate, and delete them. Closing the dialog with unsaved changes asks first.
+3. Click **Add filter** (or **Save changes** when editing) — the dialog closes and the card joins the list. Edit, duplicate, and delete from the card or the table row. Closing the dialog with unsaved changes asks first.
 4. Click **Download .xml** to save `gmail-filters.xml`.
 
 ### Import into Gmail
@@ -160,7 +167,7 @@ Import creates new filters — it does not overwrite your existing ones. Try it 
 
 ### Import existing filters into the app
 
-Export your current filters from Gmail (same tab → **Export**), then in the app click **Import Filters**: drop the `.xml` file onto the zone, browse for it, or paste the XML. Imported filters are added to your list, where you can reorder, edit, and re-export them. Importing replaces the starter examples if they are still there — they are demo data and never appear in an export. Two filters with the same match are kept as-is — the app does not de-duplicate yet.
+Export your current filters from Gmail (same tab → **Export**), then in the app click **Import Filters**: drop the `.xml` file onto the zone, browse for it, or paste the XML. Imported filters are added to your list, where you can edit, duplicate, delete, and re-export them. Importing replaces the starter examples if they are still there — they are demo data and never appear in an export. Two filters with the same match are kept as-is — the app does not de-duplicate on import, but **Merge Similar** can combine or remove them afterwards.
 
 ## Architecture
 
@@ -171,7 +178,7 @@ The app is deliberately boring: one static file, no framework, no backend. The d
 - **Model:** an array of plain filter objects (`{ id, name, from, to, subject, has, hasNot, attach, sizeOp, sizeVal, sizeUnit, labels, excludeChats, example, actions }`). `example` marks the starter filters, which show in the list but never export. No class, no store — that is the first thing the staff review would change.
 - **Export:** `buildXML()` serializes the model to Gmail's Atom-feed XML, with `escXml()` escaping every value. The property-name mapping is the load-bearing contract — see the table in the review.
 - **Import:** `parseFiltersFromXML()` runs the reverse mapping through `DOMParser`, keeping Gmail's property names as the source of truth and the app's old names only as a backwards-compatibility fallback.
-- **View:** `render()` rebuilds the filter list DOM from the model on every change. Simple and correct at small sizes; wasteful past a few hundred filters (no virtualization, no `DocumentFragment`).
+- **View:** `render()` reconciles persistent card and table-row elements (keyed by filter id) against the model — filtering and searching only toggle which elements show, they don't rebuild the list. Simple and correct at small sizes; wasteful past a few hundred filters (no virtualization, no `DocumentFragment`).
 
 For the full analysis — what is solid, what is fragile, and what to fix first — read [docs/STAFF-REVIEW.md](docs/STAFF-REVIEW.md).
 
