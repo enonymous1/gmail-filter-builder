@@ -53,6 +53,7 @@ class El {
 function makeDocument() {
   const byId = new Map();
   return {
+    documentElement: new El("html"),
     getElementById(id) {
       if (!byId.has(id)) byId.set(id, new El("div"));
       return byId.get(id);
@@ -242,6 +243,62 @@ test("dialog delete button: hidden for New, shown for Edit; deleting removes the
   assert.equal(app.getFilters().length, 0);
   assert.equal(app.getDialog().open, false);
   assert.equal(doc.getElementById("deleteBtn").hidden, true);
+});
+
+test("deleting a filter asks first; a no leaves it in place", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const f = app.normalizeFilter({ name: "VIP", from: "boss@example.com", actions: { star: true } });
+  app.setFilters([f]);
+  // Dialog delete: "no" keeps the filter and the dialog stays open.
+  app.openEditFilter(f);
+  app._setConfirm(false);
+  doc.getElementById("deleteBtn")._listeners.click[0]();
+  assert.equal(app.getFilters().length, 1);
+  assert.equal(app.getDialog().open, true);
+  app._setConfirm(true);
+  doc.getElementById("deleteBtn")._listeners.click[0]();
+  assert.equal(app.getFilters().length, 0);
+  assert.equal(app.getDialog().open, false);
+  // Card delete: same ask-first, via the trash button (top > buttons > third).
+  const g = app.normalizeFilter({ name: "News", from: "news@example.com", actions: { skip: true } });
+  app.setFilters([g]);
+  const card = doc.getElementById("filterList").children[0];
+  const delBtn = card.children[0].children[1].children[2];
+  app._setConfirm(false);
+  delBtn._listeners.click[0]();
+  assert.equal(app.getFilters().length, 1);
+  app._setConfirm(true);
+  delBtn._listeners.click[0]();
+  assert.equal(app.getFilters().length, 0);
+});
+
+test("theme toggle: button names the theme it switches to; choice persists", () => {
+  const storage = makeStorage();
+  const app = runApp(storage);
+  const doc = app._document;
+  // No saved choice: the stub has no matchMedia, so the system reads light.
+  assert.equal(app.getTheme(), "light");
+  assert.equal(doc.getElementById("themeLabel").textContent, "Dark");
+  assert.equal(doc.documentElement.getAttribute("data-theme"), null);
+  // Toggle to dark: attribute set, choice saved, button flips.
+  doc.getElementById("themeBtn")._listeners.click[0]();
+  assert.equal(app.getTheme(), "dark");
+  assert.equal(doc.documentElement.getAttribute("data-theme"), "dark");
+  assert.equal(doc.getElementById("themeLabel").textContent, "Light");
+  assert.equal(storage.getItem("gmail-filter-builder/theme"), "dark");
+  // A fresh page with the saved choice applies it on load.
+  const app2 = runApp(storage);
+  const doc2 = app2._document;
+  assert.equal(app2.getTheme(), "dark");
+  assert.equal(doc2.documentElement.getAttribute("data-theme"), "dark");
+  assert.equal(doc2.getElementById("themeLabel").textContent, "Light");
+});
+
+test("theme override blocks carry the light and dark palettes", () => {
+  const html = fs.readFileSync(INDEX, "utf8");
+  assert.match(html, /html\[data-theme="light"\]\{[^}]*--bg:#f6f4ef/);
+  assert.match(html, /html\[data-theme="dark"\]\{[^}]*--bg:#121416/);
 });
 
 test("primary button is green and the dialog delete button is filled red", () => {

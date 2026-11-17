@@ -29,6 +29,25 @@
       --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.25);
     }
   }
+  /* Manual theme override (the theme toggle): wins over the system
+     preference above, because html[data-theme] beats :root. Keep these
+     two blocks in sync with :root and the media query — same palettes. */
+  html[data-theme="light"]{
+    --bg:#f6f4ef; --surface:#ffffff; --surface2:#fbf9f5; --ink:#191c1f; --muted:#6d7278; --faint:#9aa0a6;
+    --line:#e5dfd3; --line2:#ece8df;
+    --red:#d93025; --red-soft:#fce8e6; --blue:#1a73e8; --blue-soft:#e8f0fe;
+    --green:#188038; --green-soft:#e6f4ea; --yellow:#b06000; --yellow-soft:#fef7e0;
+    --chip:#f1eee6; --input:#ffffff;
+    --shadow:0 1px 2px rgba(25,28,31,.05),0 8px 28px rgba(25,28,31,.06);
+  }
+  html[data-theme="dark"]{
+    --bg:#121416; --surface:#1b1e21; --surface2:#202427; --ink:#f2f0eb; --muted:#a7adb3; --faint:#7c838a;
+    --line:#30353a; --line2:#2a2f34;
+    --red:#ff6f66; --red-soft:#3a2321; --blue:#8ab4f8; --blue-soft:#22334d;
+    --green:#81c995; --green-soft:#1f3325; --yellow:#fdd663; --yellow-soft:#3a3120;
+    --chip:#262a2e; --input:#15181a;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.25);
+  }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:"DM Sans",system-ui,-apple-system,Segoe UI,sans-serif;-webkit-font-smoothing:antialiased}
@@ -427,6 +446,9 @@
         <button class="btn small blue" id="downloadBtn" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
           Download .xml
+        </button>
+        <button class="btn small" id="themeBtn" type="button" aria-label="Switch to dark mode">
+          <span id="themeIcon"></span><span id="themeLabel">Dark</span>
         </button>
       </div>
       <div class="card actions-card" id="actionsCard">
@@ -1014,9 +1036,13 @@
     clearBuilder(); render(); dialog.close();
   });
   $("clearBtn").addEventListener("click", clearBuilder);
+  // One shared ask-first for every delete path (dialog, card, table row).
+  function confirmDeleteFilter(){
+    return window.confirm("Delete this filter? This can't be undone.");
+  }
   $("deleteBtn").addEventListener("click", function(){
-    // Same as the card Delete: no confirm, just remove it and toast.
     if (!editingId) return;
+    if (!confirmDeleteFilter()) return;
     filters = filters.filter(function(x){ return x.id !== editingId; });
     clearBuilder(); render(); dialog.close(); showToast("Filter removed.");
   });
@@ -1128,6 +1154,56 @@
   var tableSort = { key: "num", dir: 1 }; // view-only sort; "num" is export order
   try { var savedView = localStorage.getItem(VIEW_KEY); if (savedView === "table" || savedView === "cards") viewMode = savedView; } catch (e) {}
   function saveViewMode(){ try { localStorage.setItem(VIEW_KEY, viewMode); } catch (e) {} }
+
+  /* ---------- Theme (manual light/dark override) ---------- */
+  // The page follows the OS by default (prefers-color-scheme). The
+  // toolbar toggle lets a user see the opposite theme; the choice is
+  // stored and wins over the system preference via a data-theme
+  // attribute on <html> (see the CSS override blocks). The button
+  // names the theme it switches TO, not the one you're in.
+  var THEME_KEY = "gmail-filter-builder/theme";
+  var ICON_SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
+  var ICON_MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  function systemTheme(){
+    try {
+      if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
+    } catch (e) {}
+    return "light";
+  }
+  function currentTheme(){
+    try {
+      var saved = localStorage.getItem(THEME_KEY);
+      if (saved === "light" || saved === "dark") return saved;
+    } catch (e) {}
+    return systemTheme();
+  }
+  function renderThemeButton(){
+    var next = currentTheme() === "dark" ? "light" : "dark";
+    $("themeIcon").innerHTML = next === "dark" ? ICON_MOON : ICON_SUN;
+    $("themeLabel").textContent = next === "dark" ? "Dark" : "Light";
+    $("themeBtn").setAttribute("aria-label", "Switch to " + next + " mode");
+  }
+  function applyTheme(theme){
+    document.documentElement.setAttribute("data-theme", theme);
+    renderThemeButton();
+  }
+  function setTheme(theme){
+    try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
+    applyTheme(theme);
+  }
+  // Apply the saved choice on load. With no saved choice the system
+  // preference rules (no data-theme attribute) and the button just
+  // reflects it.
+  (function initTheme(){
+    try {
+      var saved = localStorage.getItem(THEME_KEY);
+      if (saved === "light" || saved === "dark") document.documentElement.setAttribute("data-theme", saved);
+    } catch (e) {}
+    renderThemeButton();
+  })();
+  $("themeBtn").addEventListener("click", function(){
+    setTheme(currentTheme() === "dark" ? "light" : "dark");
+  });
   var noMatchH = null, noMatchP = null; // the no-match state's heading + text
 
   function filterById(id){
@@ -1218,6 +1294,7 @@
       filters.splice(filters.indexOf(live) + 1, 0, copy); render(); showToast("Duplicated.");
     });
     delBtn.addEventListener("click", function(){
+      if (!confirmDeleteFilter()) return;
       filters = filters.filter(function(x){ return x.id !== id; });
       if (editingId === id) clearBuilder();
       render(); showToast("Filter removed.");
@@ -1287,6 +1364,7 @@
       filters.splice(filters.indexOf(live) + 1, 0, copy); render(); showToast("Duplicated.");
     });
     delBtn.addEventListener("click", function(){
+      if (!confirmDeleteFilter()) return;
       filters = filters.filter(function(x){ return x.id !== id; });
       if (editingId === id) clearBuilder();
       render(); showToast("Filter removed.");
@@ -2393,6 +2471,7 @@
       applyLabel: applyLabel, applyAllLabels: applyAllLabels,
       setViewMode: setViewMode, getViewMode: function(){ return viewMode; },
       setTableSort: setTableSort, getTableSort: function(){ return tableSort; },
+      setTheme: setTheme, getTheme: function(){ return currentTheme(); },
       loadExamples: loadExamples,
       getFilters: function () { return filters; },
       setFilters: function (list) { filters = list; render(); }
