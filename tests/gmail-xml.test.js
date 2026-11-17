@@ -817,6 +817,7 @@ test("help review groups same-domain same-action filters for merging", () => {
   assert.equal(opp.merges[0].slotsFreed, 2);
   assert.equal(opp.merges[0].actions, "Skip Inbox · Label: News");
   assert.equal(opp.merges[0].criteria, "");
+  assert.equal(opp.merges[0].members.join(","), "a@x.com,b@x.com,c@x.com");
   assert.equal(opp.duplicates.length, 0);
 });
 
@@ -909,6 +910,14 @@ test("help dialog lists the groups and applying one refreshes the report", () =>
   const row = grid.children[0];
   assert.equal(row.children[0].textContent, "Merge");
   assert.ok(row.children[1].children[0].textContent.indexOf("@x.com") !== -1);
+  // The row lists the senders being merged, in list order, so the
+  // user can see what the one filter replaces.
+  const members = row.children[1].children[2];
+  assert.equal(members.className, "help-members");
+  assert.equal(members.children.length, 3);
+  assert.equal(members.children[0].textContent, "a@x.com");
+  assert.equal(members.children[1].textContent, "b@x.com");
+  assert.equal(members.children[2].textContent, "c@x.com");
   // Click Merge — the group collapses to one domain filter and the
   // report re-renders to the clean state.
   row.children[2]._listeners.click[0]();

@@ -118,6 +118,8 @@
   .help-text{flex:1;min-width:0}
   .help-text b{display:block;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .help-text span{display:block;font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:2px;overflow-wrap:anywhere}
+  .help-members{margin-top:6px;border-left:2px solid var(--line);padding-left:8px;display:flex;flex-direction:column;gap:1px}
+  .help-text .help-members span{font-size:12px;line-height:1.45;margin-top:0}
   /* Two-column builder on wide displays: matches left, actions right. */
   @media (min-width:860px){
     dialog.builder-dialog{max-width:920px}
@@ -1740,7 +1742,10 @@
         count: g.length,
         actions: actionChips(g[0]).join(" · "),
         criteria: other,
-        slotsFreed: g.length - 1
+        slotsFreed: g.length - 1,
+        // The senders being merged, in list order — the row shows
+        // them so the user can see what the one filter replaces.
+        members: g.map(function(f){ return f.from; })
       });
     });
     Object.keys(byDup).forEach(function(k){
@@ -1803,6 +1808,11 @@
     var s = document.createElement("span");
     s.textContent = m.actions + (m.criteria ? " · " + m.criteria : "") + " — frees " + m.slotsFreed + " slot" + (m.slotsFreed === 1 ? "" : "s") + ". Also matches future senders from this domain.";
     t.appendChild(s);
+    var members = document.createElement("div"); members.className = "help-members";
+    m.members.forEach(function(from){
+      var line = document.createElement("span"); line.textContent = from; line.title = from; members.appendChild(line);
+    });
+    t.appendChild(members);
     row.appendChild(t);
     var apply = document.createElement("button"); apply.type = "button"; apply.className = "btn small"; apply.textContent = "Merge";
     apply.addEventListener("click", function(){ applyMerge(m.ids); });
