@@ -1910,16 +1910,46 @@
     if (parts.length >= 3 && TWO_PART.indexOf(parts.slice(-2).join(".")) !== -1) return parts.slice(-3).join(".");
     return parts.slice(-2).join(".");
   }
+  function fromDomains(f){
+    // All the sender domains a filter matches: one for a plain From
+    // ("mail@mail8.creditkarma.com", "@creditkarma.com"), several
+    // for a merged "{@a @b ...}" OR. A merged filter's From is a
+    // compound expression, so domainOf returns null for it — this
+    // reads the hosts out of the braces instead. "OR" keywords and
+    // stray parens are skipped; a token with no "@" isn't a domain.
+    var from = (f.from || "").trim();
+    if (!from) return [];
+    if (from.charAt(0) === "{" && from.charAt(from.length - 1) === "}"){
+      var domains = [];
+      from.slice(1, -1).split(/\s+/).forEach(function(tok){
+        if (!tok || /^or$/i.test(tok)) return;
+        tok = tok.replace(/^\(+/, "").replace(/\)+$/, "");
+        var at = tok.lastIndexOf("@");
+        if (at === -1) return;
+        var d = tok.slice(at + 1).toLowerCase();
+        if (d && domains.indexOf(d) === -1) domains.push(d);
+      });
+      return domains;
+    }
+    var dom = domainOf(f);
+    return dom ? [dom] : [];
+  }
   function suggestLabel(f){
     // A label suggested from the sender: the registrable domain's
     // first label, title-cased. Short labels (3 letters or fewer)
     // are uppercased — they're usually acronyms (CVS, IRS, UPS,
     // AOL). A heuristic: "Creditkarma", not "Credit Karma". The
     // suggestion is shown on the row and reviewed before applying.
-    var dom = domainOf(f);
-    if (!dom) return null;
-    var reg = registrableDomain(dom);
+    // A merged "{@a @b ...}" From still suggests, when every host
+    // in it shares one registrable domain; mixed domains suggest
+    // nothing, since there's no one brand to pick.
+    var domains = fromDomains(f);
+    if (!domains.length) return null;
+    var reg = registrableDomain(domains[0]);
     if (!reg) return null;
+    for (var i = 1; i < domains.length; i++){
+      if (registrableDomain(domains[i]) !== reg) return null;
+    }
     var label = reg.split(".")[0];
     if (!label) return null;
     if (label.length <= 3) return label.toUpperCase();
@@ -2340,6 +2370,7 @@
       getSecurityDialog: function(){ return securityDialog; },
       findHelpOpportunities: findHelpOpportunities,
       suggestLabel: suggestLabel,
+      fromDomains: fromDomains,
       noLabelFilters: noLabelFilters,
       openHelpDialog: openHelpDialog,
       getHelpDialog: function(){ return helpDialog; },

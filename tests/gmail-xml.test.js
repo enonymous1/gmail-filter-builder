@@ -1093,6 +1093,15 @@ test("suggestLabel derives a label from the sender's domain", () => {
   assert.equal(app.suggestLabel(mk({ from: "a@x.com" })), "X");
   // No sender, no suggestion.
   assert.equal(app.suggestLabel(mk({ subject: "hello" })), null);
+  // A merged "{@a @b ...}" OR still suggests, when every host
+  // shares one registrable domain.
+  assert.equal(app.suggestLabel(mk({ from: "{@mail8.creditkarma.com @mail4.creditkarma.com @creditkarma.com}" })), "Creditkarma");
+  assert.equal(app.suggestLabel(mk({ from: "{@email.apple.com @insideapple.apple.com}" })), "Apple");
+  assert.equal(app.suggestLabel(mk({ from: "{@account.one.app @update.one.app @servicing.one.app}" })), "ONE");
+  // Mixed registrable domains — no one brand to pick.
+  assert.equal(app.suggestLabel(mk({ from: "{@a.com @b.com}" })), null);
+  // An OR with an explicit OR keyword still reads the hosts.
+  assert.equal(app.suggestLabel(mk({ from: "{@mail8.creditkarma.com OR @mail4.creditkarma.com}" })), "Creditkarma");
 });
 
 test("labels dialog lists every no-label filter, with Apply and View", () => {
@@ -1173,6 +1182,43 @@ test("apply all labels applies every suggestion and asks first", () => {
   const after = app.getFilters();
   assert.equal(after[0].actions.label, "Amazon");
   assert.equal(after[1].actions.label, "Facebook");
+  assert.equal(after[2].actions.label, "");
+});
+
+test("labels dialog suggests labels for merged OR filters and offers Apply all", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const mk = (data) => app.normalizeFilter(data);
+  app.setFilters([
+    mk({ from: "{@mail8.creditkarma.com @mail4.creditkarma.com @creditkarma.com}", actions: { skip: true, neverspam: true } }),
+    mk({ from: "{@email.apple.com @insideapple.apple.com}", actions: { skip: true, neverspam: true } }),
+    // No From at all — no suggestion, View only.
+    mk({ has: "list:(<10518406.xt.local>)", actions: { skip: true, neverspam: true } }),
+  ]);
+  app.openLabelsDialog();
+  const summary = doc.getElementById("labelsSummary").textContent;
+  assert.ok(summary.indexOf("3 filters without a label (2 with a suggestion)") !== -1);
+  const results = doc.getElementById("labelsResults");
+  const group = results.children[0];
+  // Apply all (2) — the senderless filter is skipped.
+  assert.equal(group.children[0].children[1].textContent, "Apply all (2)");
+  const grid = group.children[1];
+  assert.equal(grid.children.length, 3);
+  // The merged rows carry their suggestions and an Apply button.
+  const row0 = grid.children[0];
+  assert.ok(row0.children[1].children[2].children[0].textContent.indexOf("Suggested label: Creditkarma") !== -1);
+  assert.equal(row0.children[2].children[0].textContent, "Apply");
+  const row1 = grid.children[1];
+  assert.ok(row1.children[1].children[2].children[0].textContent.indexOf("Suggested label: Apple") !== -1);
+  // The senderless row has View only.
+  const row2 = grid.children[2];
+  assert.equal(row2.children[2].children.length, 1);
+  assert.equal(row2.children[2].children[0].textContent, "View");
+  // Apply all labels the two merged filters and leaves the third.
+  group.children[0].children[1]._listeners.click[0]();
+  const after = app.getFilters();
+  assert.equal(after[0].actions.label, "Creditkarma");
+  assert.equal(after[1].actions.label, "Apple");
   assert.equal(after[2].actions.label, "");
 });
 
