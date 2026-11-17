@@ -933,7 +933,7 @@ test("help dialog lists the groups and applying one refreshes the report", () =>
   row.children[2]._listeners.click[0]();
   assert.equal(app.getFilters().length, 1);
   assert.equal(app.getFilters()[0].from, "@x.com");
-  assert.ok(doc.getElementById("helpSummary").textContent.indexOf("No merges or duplicates") !== -1);
+  assert.ok(doc.getElementById("helpSummary").textContent.indexOf("No merges, duplicates, or renames found") !== -1);
 });
 
 test("help review reports clean when nothing can merge or duplicate", () => {
@@ -941,11 +941,11 @@ test("help review reports clean when nothing can merge or duplicate", () => {
   const doc = app._document;
   const mk = (data) => app.normalizeFilter(data);
   app.setFilters([
-    mk({ from: "a@x.com", actions: { skip: true } }),
-    mk({ from: "b@y.com", actions: { star: true } }),
+    mk({ from: "a@x.com", actions: { skip: true, label: "News" } }),
+    mk({ from: "b@y.com", actions: { star: true, label: "Star" } }),
   ]);
   app.openHelpDialog();
-  assert.ok(doc.getElementById("helpSummary").textContent.indexOf("No merges or duplicates") !== -1);
+  assert.ok(doc.getElementById("helpSummary").textContent.indexOf("No merges, duplicates, or renames found") !== -1);
 });
 
 test("help grid uses minmax(0,1fr) so long names can't blow it out", () => {
@@ -963,9 +963,9 @@ test("merge all applies every group and leaves the report clean", () => {
   app.setFilters([
     mk({ from: "a@x.com", actions: { skip: true, label: "News" } }),
     mk({ from: "b@x.com", actions: { skip: true, label: "News" } }),
-    mk({ from: "a@y.com", actions: { star: true } }),
-    mk({ from: "b@y.com", actions: { star: true } }),
-    mk({ from: "c@y.com", actions: { star: true } }),
+    mk({ from: "a@y.com", actions: { star: true, label: "Star" } }),
+    mk({ from: "b@y.com", actions: { star: true, label: "Star" } }),
+    mk({ from: "c@y.com", actions: { star: true, label: "Star" } }),
   ]);
   app._setConfirm(true);
   app.openHelpDialog();
@@ -975,7 +975,7 @@ test("merge all applies every group and leaves the report clean", () => {
   // One domain filter per group, in list order.
   assert.equal(after[0].from, "@x.com");
   assert.equal(after[1].from, "@y.com");
-  assert.ok(doc.getElementById("helpSummary").textContent.indexOf("No merges or duplicates") !== -1);
+  assert.ok(doc.getElementById("helpSummary").textContent.indexOf("No merges, duplicates, or renames found") !== -1);
 });
 
 test("merge all asks first and a no leaves the list untouched", () => {
@@ -1022,4 +1022,122 @@ test("help meta line is styled apart from the actions line", () => {
   assert.match(html, /\.help-text \.help-meta b\{display:inline;font-size:12\.5px;color:var\(--ink\)\}/);
   assert.match(html, /\.help-text \.help-meta \.help-meta-note\{display:inline;margin-top:0\}/);
   assert.match(html, /\.help-group-head\{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 8px\}/);
+});
+
+test("deriveBrand title-cases the registrable domain and uppercases short ones", () => {
+  const app = runApp(makeStorage());
+  const mk = (data) => app.normalizeFilter(data);
+  assert.equal(app.deriveBrand(mk({ from: "store-news@amazon.com" })), "Amazon");
+  assert.equal(app.deriveBrand(mk({ from: "advertise-noreply@support.facebook.com" })), "Facebook");
+  assert.equal(app.deriveBrand(mk({ from: "no-reply@rs.email.nextdoor.com" })), "Nextdoor");
+  // Compound words stay joined — the heuristic can't split them.
+  assert.equal(app.deriveBrand(mk({ from: "a@notifications3.creditkarma.com" })), "Creditkarma");
+  // Short labels are uppercased — usually acronyms.
+  assert.equal(app.deriveBrand(mk({ from: "extracare@pharmacy.cvs.com" })), "CVS");
+  // A two-part public suffix doesn't become the brand.
+  assert.equal(app.deriveBrand(mk({ from: "a@shop.amazon.co.uk" })), "Amazon");
+  assert.equal(app.deriveBrand(mk({ from: "a@x.com" })), "X");
+  // No sender, no brand.
+  assert.equal(app.deriveBrand(mk({ subject: "hello" })), null);
+});
+
+test("rename groups cover unlabeled From-named filters and skip the rest", () => {
+  const app = runApp(makeStorage());
+  const mk = (data) => app.normalizeFilter(data);
+  const list = [
+    mk({ from: "a@amazon.com", actions: { skip: true } }),
+    mk({ from: "b@amazon.com", actions: { skip: true } }),
+    // Labeled — already shows its label as its name.
+    mk({ from: "c@amazon.com", actions: { skip: true, label: "Amazon" } }),
+    // A custom name — leave it alone.
+    mk({ name: "My Amazon", from: "d@amazon.com", actions: { skip: true } }),
+    // No sender — nothing to derive a brand from.
+    mk({ subject: "hello", actions: { skip: true } }),
+  ];
+  const groups = app.findRenameOpportunities(list);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].brand, "Amazon");
+  assert.equal(groups[0].count, 2);
+  assert.equal(groups[0].members.join(","), "a@amazon.com,b@amazon.com");
+});
+
+test("applying a rename sets the name and leaves the export unchanged", () => {
+  const app = runApp(makeStorage());
+  const mk = (data) => app.normalizeFilter(data);
+  app.setFilters([
+    mk({ from: "a@amazon.com", actions: { skip: true } }),
+    mk({ from: "b@amazon.com", actions: { skip: true } }),
+  ]);
+  const groups = app.findRenameOpportunities(app.getFilters());
+  assert.equal(groups.length, 1);
+  app.applyRename(groups[0].ids, groups[0].brand);
+  const after = app.getFilters();
+  assert.equal(after[0].name, "Amazon");
+  assert.equal(after[1].name, "Amazon");
+  // The name is never in the XML — the export still carries the
+  // sender addresses, but not the brand name Gmail can't see.
+  const xml = app.buildXML();
+  assert.equal(xml.indexOf("Amazon"), -1);
+  assert.ok(xml.indexOf("a@amazon.com") !== -1);
+});
+
+test("rename all renames every brand group and asks first", () => {
+  const app = runApp(makeStorage());
+  const mk = (data) => app.normalizeFilter(data);
+  app.setFilters([
+    mk({ from: "a@amazon.com", actions: { skip: true } }),
+    mk({ from: "a@facebook.com", actions: { skip: true } }),
+    mk({ from: "b@facebook.com", actions: { skip: true } }),
+  ]);
+  app._setConfirm(false);
+  app.applyAllRenames();
+  assert.equal(app.getFilters()[0].name, "");
+  app._setConfirm(true);
+  app.applyAllRenames();
+  const after = app.getFilters();
+  assert.equal(after[0].name, "Amazon");
+  assert.equal(after[1].name, "Facebook");
+  assert.equal(after[2].name, "Facebook");
+});
+
+test("help dialog lists no-label filters that can't be renamed, with a View button", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const mk = (data) => app.normalizeFilter(data);
+  app.setFilters([
+    // Renameable (has a sender) — goes in the Rename section, not here.
+    mk({ from: "a@amazon.com", actions: { skip: true } }),
+    // No label and no sender — the remainder that needs a manual label.
+    mk({ subject: "hello", actions: { skip: true } }),
+    // Labeled — not no-label at all.
+    mk({ from: "b@x.com", actions: { skip: true, label: "News" } }),
+  ]);
+  app.openHelpDialog();
+  const summary = doc.getElementById("helpSummary").textContent;
+  assert.ok(summary.indexOf("1 filter can be renamed to a brand") !== -1);
+  assert.ok(summary.indexOf("2 filters without a label") !== -1);
+  const results = doc.getElementById("helpResults");
+  // Sections in order: Rename, No label. (No merges or duplicates.)
+  assert.equal(results.children[0].children[0].children[0].textContent, "Rename to a brand");
+  const noLabelGroup = results.children[1];
+  assert.equal(noLabelGroup.children[0].textContent, "No label");
+  const grid = noLabelGroup.children[2];
+  assert.equal(grid.children.length, 1);
+  const row = grid.children[0];
+  assert.equal(row.children[0].textContent, "No label");
+  assert.ok(row.children[1].children[0].textContent.indexOf("Subject: hello") !== -1);
+  // View opens the filter in the editor (the help dialog closes first).
+  row.children[2]._listeners.click[0]();
+  assert.equal(doc.getElementById("filterDialog").open, true);
+});
+
+test("noLabelFilters returns every filter without a label action", () => {
+  const app = runApp(makeStorage());
+  const mk = (data) => app.normalizeFilter(data);
+  const list = [
+    mk({ from: "a@x.com", actions: { skip: true } }),
+    mk({ from: "b@x.com", actions: { skip: true, label: "News" } }),
+    mk({ subject: "hello", actions: { star: true } }),
+  ];
+  assert.equal(app.noLabelFilters(list).length, 2);
 });
