@@ -792,3 +792,147 @@ test("security findings lay out in a two-column grid on wide displays", () => {
   assert.equal(grid.className, "sec-grid");
   assert.equal(grid.children.length, 2);
 });
+
+test("help review groups same-domain same-action filters for merging", () => {
+  const app = runApp(makeStorage());
+  const mk = (data) => app.normalizeFilter(data);
+  const list = [
+    mk({ from: "a@x.com", actions: { skip: true, label: "News" } }),
+    mk({ from: "b@x.com", actions: { skip: true, label: "News" } }),
+    mk({ from: "c@x.com", actions: { skip: true, label: "News" } }),
+    // Same domain, different actions — not the same group.
+    mk({ from: "d@x.com", actions: { star: true } }),
+    // Same domain and actions, but a different subject — merging
+    // would drop the subject, so it stays out of the group.
+    mk({ from: "e@x.com", subject: "invoice", actions: { skip: true, label: "News" } }),
+    // No From — nothing to group by domain.
+    mk({ subject: "hello", actions: { skip: true } }),
+    // A compound From — not a single domain.
+    mk({ from: "(a@y.com OR b@y.com)", actions: { skip: true } }),
+  ];
+  const opp = app.findHelpOpportunities(list);
+  assert.equal(opp.merges.length, 1);
+  assert.equal(opp.merges[0].domain, "x.com");
+  assert.equal(opp.merges[0].count, 3);
+  assert.equal(opp.merges[0].slotsFreed, 2);
+  assert.equal(opp.merges[0].actions, "Skip Inbox · Label: News");
+  assert.equal(opp.merges[0].criteria, "");
+  assert.equal(opp.duplicates.length, 0);
+});
+
+test("a bare-domain From groups with per-sender filters from that domain", () => {
+  const app = runApp(makeStorage());
+  const mk = (data) => app.normalizeFilter(data);
+  const list = [
+    mk({ from: "@x.com", actions: { skip: true } }),
+    mk({ from: "a@x.com", actions: { skip: true } }),
+  ];
+  const opp = app.findHelpOpportunities(list);
+  assert.equal(opp.merges.length, 1);
+  assert.equal(opp.merges[0].count, 2);
+});
+
+test("help review finds exact duplicates and ignores near-misses", () => {
+  const app = runApp(makeStorage());
+  const mk = (data) => app.normalizeFilter(data);
+  // No From here, so the duplicates can't also be a merge group.
+  const list = [
+    mk({ subject: "hello", actions: { skip: true } }),
+    mk({ subject: "hello", actions: { skip: true } }),
+    // Same criteria, different action — not a duplicate.
+    mk({ subject: "hello", actions: { skip: true, star: true } }),
+    // Same actions, different criteria — not a duplicate.
+    mk({ subject: "bye", actions: { skip: true } }),
+  ];
+  const opp = app.findHelpOpportunities(list);
+  assert.equal(opp.duplicates.length, 1);
+  assert.equal(opp.duplicates[0].count, 2);
+  assert.equal(opp.duplicates[0].slotsFreed, 1);
+  assert.equal(opp.merges.length, 0);
+});
+
+test("applying a merge replaces the group with one domain filter", () => {
+  const app = runApp(makeStorage());
+  const mk = (data) => app.normalizeFilter(data);
+  app.setFilters([
+    mk({ name: "A", from: "a@x.com", actions: { skip: true, label: "News" } }),
+    mk({ name: "B", from: "b@x.com", actions: { skip: true, label: "News" } }),
+    mk({ name: "C", from: "c@x.com", actions: { skip: true, label: "News" } }),
+    mk({ name: "Other", from: "z@y.com", actions: { star: true } }),
+  ]);
+  const opp = app.findHelpOpportunities(app.getFilters());
+  assert.equal(opp.merges.length, 1);
+  app.applyMerge(opp.merges[0].ids);
+  const after = app.getFilters();
+  assert.equal(after.length, 2);
+  // The merged filter sits where the group started, points at the
+  // domain, and carries the shared actions and label.
+  assert.equal(after[0].from, "@x.com");
+  assert.equal(after[0].actions.skip, true);
+  assert.equal(after[0].actions.label, "News");
+  assert.equal(after[0].name, "News");
+  assert.equal(after[1].name, "Other");
+  assert.equal(app.searchQuery(after[0]), "from:(@x.com)");
+});
+
+test("applying a duplicate fix keeps one and removes the rest", () => {
+  const app = runApp(makeStorage());
+  const mk = (data) => app.normalizeFilter(data);
+  app.setFilters([
+    mk({ name: "First", from: "a@x.com", actions: { skip: true } }),
+    mk({ name: "Copy", from: "a@x.com", actions: { skip: true } }),
+    mk({ name: "Other", from: "z@y.com", actions: { star: true } }),
+  ]);
+  const opp = app.findHelpOpportunities(app.getFilters());
+  assert.equal(opp.duplicates.length, 1);
+  app.applyDuplicates(opp.duplicates[0].ids);
+  const after = app.getFilters();
+  assert.equal(after.length, 2);
+  assert.equal(after[0].name, "First");
+  assert.equal(after[1].name, "Other");
+});
+
+test("help dialog lists the groups and applying one refreshes the report", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const mk = (data) => app.normalizeFilter(data);
+  app.setFilters([
+    mk({ from: "a@x.com", actions: { skip: true, label: "News" } }),
+    mk({ from: "b@x.com", actions: { skip: true, label: "News" } }),
+    mk({ from: "c@x.com", actions: { skip: true, label: "News" } }),
+  ]);
+  app.openHelpDialog();
+  const results = doc.getElementById("helpResults");
+  const grid = results.children[0].children[1]; // first group → its grid
+  assert.equal(grid.className, "help-grid");
+  assert.equal(grid.children.length, 1);
+  const row = grid.children[0];
+  assert.equal(row.children[0].textContent, "Merge");
+  assert.ok(row.children[1].children[0].textContent.indexOf("@x.com") !== -1);
+  // Click Merge — the group collapses to one domain filter and the
+  // report re-renders to the clean state.
+  row.children[2]._listeners.click[0]();
+  assert.equal(app.getFilters().length, 1);
+  assert.equal(app.getFilters()[0].from, "@x.com");
+  assert.ok(doc.getElementById("helpSummary").textContent.indexOf("No merges or duplicates") !== -1);
+});
+
+test("help review reports clean when nothing can merge or duplicate", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  const mk = (data) => app.normalizeFilter(data);
+  app.setFilters([
+    mk({ from: "a@x.com", actions: { skip: true } }),
+    mk({ from: "b@y.com", actions: { star: true } }),
+  ]);
+  app.openHelpDialog();
+  assert.ok(doc.getElementById("helpSummary").textContent.indexOf("No merges or duplicates") !== -1);
+});
+
+test("help grid uses minmax(0,1fr) so long names can't blow it out", () => {
+  const html = fs.readFileSync(INDEX, "utf8");
+  assert.match(html, /\.help-grid\{display:grid;grid-template-columns:minmax\(0,1fr\);gap:8px\}/);
+  assert.match(html, /\.help-grid\{grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)\}/);
+  assert.match(html, /\.help-row\{[^}]*min-width:0/);
+  assert.match(html, /dialog\.help-dialog\{max-width:920px\}/);
+});

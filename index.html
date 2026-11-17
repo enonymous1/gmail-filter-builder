@@ -79,11 +79,11 @@
   .builder-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
   .builder-head .icon-btn{flex:none}
   /* ---------- Builder dialog ---------- */
-  dialog.builder-dialog,dialog.import-dialog,dialog.security-dialog{border:1px solid var(--line);border-radius:20px;padding:0;max-width:560px;width:calc(100vw - 32px);background:var(--surface);color:var(--ink);box-shadow:0 24px 60px rgba(0,0,0,.3)}
-  dialog.builder-dialog::backdrop,dialog.import-dialog::backdrop,dialog.security-dialog::backdrop{background:rgba(10,12,14,.5)}
+  dialog.builder-dialog,dialog.import-dialog,dialog.security-dialog,dialog.help-dialog{border:1px solid var(--line);border-radius:20px;padding:0;max-width:560px;width:calc(100vw - 32px);background:var(--surface);color:var(--ink);box-shadow:0 24px 60px rgba(0,0,0,.3)}
+  dialog.builder-dialog::backdrop,dialog.import-dialog::backdrop,dialog.security-dialog::backdrop,dialog.help-dialog::backdrop{background:rgba(10,12,14,.5)}
   dialog.builder-dialog .builder{position:static;box-shadow:none;border:0;border-radius:20px;max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px);overflow-y:auto}
-  dialog.import-dialog,dialog.security-dialog{padding:22px;max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px);overflow-y:auto}
-  dialog.import-dialog h2,dialog.security-dialog h2{margin:0 0 4px;font-size:19px}
+  dialog.import-dialog,dialog.security-dialog,dialog.help-dialog{padding:22px;max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px);overflow-y:auto}
+  dialog.import-dialog h2,dialog.security-dialog h2,dialog.help-dialog h2{margin:0 0 4px;font-size:19px}
   dialog.import-dialog textarea{min-height:120px;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px}
   .drop-zone{display:block;border:1.5px dashed var(--line);border-radius:14px;padding:26px 18px;text-align:center;color:var(--muted);cursor:pointer;font-size:14px}
   .drop-zone b{color:var(--ink)}
@@ -103,15 +103,32 @@
   .sec-text{flex:1;min-width:0}
   .sec-text b{display:block;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .sec-text span{display:block;font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:2px;overflow-wrap:anywhere}
+  /* ---------- Help me out ---------- */
+  .help-summary{font-size:14px;font-weight:700;margin:0 0 14px}
+  .help-group{margin:0 0 18px}
+  .help-group h3{margin:0 0 8px;font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+  /* minmax(0,1fr) from the start: plain 1fr is minmax(auto,1fr), and a
+     long unbreakable name forces its track wider than the dialog — the
+     same blowout the security grid hit (see the 2026-11-16 note). */
+  .help-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+  .help-row{display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0}
+  .help-badge{flex:none;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:3px 8px;margin-top:1px}
+  .help-badge.merge{color:var(--blue);background:var(--blue-soft)}
+  .help-badge.duplicate{color:var(--yellow);background:var(--yellow-soft)}
+  .help-text{flex:1;min-width:0}
+  .help-text b{display:block;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .help-text span{display:block;font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:2px;overflow-wrap:anywhere}
   /* Two-column builder on wide displays: matches left, actions right. */
   @media (min-width:860px){
     dialog.builder-dialog{max-width:920px}
     dialog.security-dialog{max-width:920px}
+    dialog.help-dialog{max-width:920px}
     .sec-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+    .help-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
     .builder-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
     .builder-grid .grid2{grid-template-columns:1fr}
   }
-  .builder .sub,.import-dialog .sub,.security-dialog .sub{color:var(--muted);font-size:13.5px;line-height:1.55;margin:0 0 16px}
+  .builder .sub,.import-dialog .sub,.security-dialog .sub,.help-dialog .sub{color:var(--muted);font-size:13.5px;line-height:1.55;margin:0 0 16px}
   fieldset{border:0;padding:0;margin:0 0 18px}
   legend{font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);padding:0;margin-bottom:10px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -374,6 +391,7 @@
         <button class="btn small" id="importBtn" type="button">Import Filters</button>
         <button class="btn small danger" id="clearAllBtn" type="button">Clear all</button>
         <button class="btn small" id="securityBtn" type="button">Security check</button>
+        <button class="btn small" id="helpBtn" type="button">Help me out</button>
         <button class="btn small" id="copyXmlBtn" type="button">Copy XML</button>
         <button class="btn small blue" id="downloadBtn" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
@@ -455,6 +473,20 @@
     <div id="securityResults"></div>
     <div class="builder-actions">
       <button class="btn" id="securityCloseBtn" type="button">Close</button>
+    </div>
+  </dialog>
+
+  <!-- HELP ME OUT (modal dialog) -->
+  <dialog id="helpDialog" class="help-dialog" aria-labelledby="helpDialogTitle">
+    <div class="builder-head">
+      <h2 id="helpDialogTitle">Help me out</h2>
+      <button class="icon-btn" id="helpDialogClose" type="button" title="Close" aria-label="Close">✕</button>
+    </div>
+    <p class="sub">A review of this list for filters that can be combined or removed, to free up space at Gmail’s 1,000-filter limit. Nothing changes until you apply a fix — each one is listed separately, and the report refreshes after each one. Download the XML first as a backup. A merge also matches future senders from that domain, not just the ones listed.</p>
+    <p class="help-summary" id="helpSummary"></p>
+    <div id="helpResults"></div>
+    <div class="builder-actions">
+      <button class="btn" id="helpCloseBtn" type="button">Close</button>
     </div>
   </dialog>
 
@@ -1635,6 +1667,214 @@
     securityLastOpener = null;
   });
 
+  /* ---------- Help me out ---------- */
+  // Free up space at Gmail's 1,000-filter limit by combining or
+  // removing filters. Two kinds of fix, both read-only until applied:
+  //  - merge: several filters from one domain with the same other
+  //    criteria and the same actions become one filter From @domain.
+  //    It also matches future senders from that domain — that is the
+  //    point for newsletters, and the reason each group says so.
+  //  - duplicate: identical criteria and actions, keep one.
+  // Each fix is applied on its own button, then the report re-runs
+  // from the live list, so a fix that shrinks another group is
+  // reflected at once. Nothing is applied on opening the report.
+  var helpDialog = $("helpDialog");
+  var helpLastOpener = null;
+  function domainOf(f){
+    var from = (f.from || "").trim();
+    if (!from) return null;
+    // Only a single plain address or a bare domain — compound
+    // expressions (OR, parens, display names) don't group.
+    if (/[\s(),<>]/.test(from)) return null;
+    var at = from.lastIndexOf("@");
+    if (at < 0) return from.toLowerCase(); // bare domain
+    var dom = from.slice(at + 1).toLowerCase();
+    return dom || null;
+  }
+  function actionSig(f){
+    // Canonical action set: the booleans, the labels (sorted, so
+    // order doesn't split a group), the category and the forward.
+    var a = f.actions || {};
+    return JSON.stringify([
+      !!a.skip, !!a.read, !!a.star,
+      (f.labels || []).slice().sort().join(","),
+      a.category || "", a.forward || "",
+      !!a.trash, !!a.neverspam, !!a.alwaysimp, !!a.neverimp
+    ]);
+  }
+  function mergeKey(f){
+    var dom = domainOf(f);
+    if (!dom) return null;
+    // The non-From criteria must agree too, or merging would drop them.
+    return dom + "\0" + JSON.stringify([
+      f.to || "", f.subject || "", f.has || "", f.hasNot || "",
+      !!f.attach, !!f.excludeChats,
+      f.sizeOp || "", f.sizeVal || "", f.sizeUnit || ""
+    ]) + "\0" + actionSig(f);
+  }
+  function dupKey(f){
+    return JSON.stringify([
+      f.from || "", f.to || "", f.subject || "", f.has || "", f.hasNot || "",
+      !!f.attach, !!f.excludeChats,
+      f.sizeOp || "", f.sizeVal || "", f.sizeUnit || "",
+      actionSig(f)
+    ]);
+  }
+  function findHelpOpportunities(list){
+    var merges = [], dups = [];
+    var byMerge = {}, byDup = {};
+    list.forEach(function(f){
+      var mk = mergeKey(f);
+      if (mk) (byMerge[mk] = byMerge[mk] || []).push(f);
+      var dk = dupKey(f);
+      (byDup[dk] = byDup[dk] || []).push(f);
+    });
+    Object.keys(byMerge).forEach(function(k){
+      var g = byMerge[k];
+      if (g.length < 2) return;
+      var dom = domainOf(g[0]);
+      var other = criteriaChips(g[0]).filter(function(t){ return t.indexOf("From: ") !== 0; }).join(" · ");
+      merges.push({
+        type: "merge", domain: dom,
+        ids: g.map(function(f){ return f.id; }),
+        count: g.length,
+        actions: actionChips(g[0]).join(" · "),
+        criteria: other,
+        slotsFreed: g.length - 1
+      });
+    });
+    Object.keys(byDup).forEach(function(k){
+      var g = byDup[k];
+      if (g.length < 2) return;
+      dups.push({
+        type: "duplicate",
+        ids: g.map(function(f){ return f.id; }),
+        count: g.length,
+        name: autoName(g[0]),
+        slotsFreed: g.length - 1
+      });
+    });
+    return { merges: merges, duplicates: dups };
+  }
+  function applyMerge(ids){
+    // Resolve the group from the live list (a group offered before
+    // another fix ran could be stale — the review re-runs after every
+    // apply, so this is only a guard).
+    var group = ids.map(filterById).filter(function(f){ return !!f; });
+    if (group.length < 2) return;
+    var dom = domainOf(group[0]);
+    if (!dom) return;
+    var firstIdx = -1;
+    for (var i = 0; i < filters.length; i++) if (filters[i].id === group[0].id){ firstIdx = i; break; }
+    var data = {
+      from: "@" + dom,
+      to: group[0].to, subject: group[0].subject, has: group[0].has, hasNot: group[0].hasNot,
+      attach: group[0].attach, excludeChats: group[0].excludeChats,
+      sizeOp: group[0].sizeOp, sizeVal: group[0].sizeVal, sizeUnit: group[0].sizeUnit,
+      labels: (group[0].labels || []).slice(),
+      actions: JSON.parse(JSON.stringify(group[0].actions || {}))
+    };
+    var merged = normalizeFilter(data);
+    merged.name = autoName(merged);
+    merged.example = false;
+    var idSet = {};
+    group.forEach(function(f){ idSet[f.id] = true; });
+    filters = filters.filter(function(f){ return !idSet[f.id]; });
+    filters.splice(firstIdx < 0 ? filters.length : firstIdx, 0, merged);
+    render();
+    renderHelpFindings();
+    showToast("Merged " + group.length + " filters into one — freed " + (group.length - 1) + " slot" + (group.length - 1 === 1 ? "" : "s") + ".");
+  }
+  function applyDuplicates(ids){
+    var group = ids.map(filterById).filter(function(f){ return !!f; });
+    if (group.length < 2) return;
+    var idSet = {};
+    group.slice(1).forEach(function(f){ idSet[f.id] = true; });
+    filters = filters.filter(function(f){ return !idSet[f.id]; });
+    render();
+    renderHelpFindings();
+    showToast("Removed " + (group.length - 1) + " duplicate filter" + (group.length - 1 === 1 ? "" : "s") + ".");
+  }
+  function helpMergeRow(m){
+    var row = document.createElement("div"); row.className = "help-row";
+    var badge = document.createElement("span"); badge.className = "help-badge merge"; badge.textContent = "Merge"; row.appendChild(badge);
+    var t = document.createElement("div"); t.className = "help-text";
+    var b = document.createElement("b"); b.textContent = m.count + " filters from @" + m.domain; b.title = b.textContent; t.appendChild(b);
+    var s = document.createElement("span");
+    s.textContent = m.actions + (m.criteria ? " · " + m.criteria : "") + " — frees " + m.slotsFreed + " slot" + (m.slotsFreed === 1 ? "" : "s") + ". Also matches future senders from this domain.";
+    t.appendChild(s);
+    row.appendChild(t);
+    var apply = document.createElement("button"); apply.type = "button"; apply.className = "btn small"; apply.textContent = "Merge";
+    apply.addEventListener("click", function(){ applyMerge(m.ids); });
+    row.appendChild(apply);
+    return row;
+  }
+  function helpDupRow(d){
+    var row = document.createElement("div"); row.className = "help-row";
+    var badge = document.createElement("span"); badge.className = "help-badge duplicate"; badge.textContent = "Duplicate"; row.appendChild(badge);
+    var t = document.createElement("div"); t.className = "help-text";
+    var b = document.createElement("b"); b.textContent = d.name; b.title = d.name; t.appendChild(b);
+    var s = document.createElement("span");
+    s.textContent = d.count + " identical filters — keep one, remove the rest. Frees " + d.slotsFreed + " slot" + (d.slotsFreed === 1 ? "" : "s") + ".";
+    t.appendChild(s);
+    row.appendChild(t);
+    var apply = document.createElement("button"); apply.type = "button"; apply.className = "btn small"; apply.textContent = "Keep one";
+    apply.addEventListener("click", function(){ applyDuplicates(d.ids); });
+    row.appendChild(apply);
+    return row;
+  }
+  function renderHelpFindings(){
+    var box = $("helpResults");
+    var summary = $("helpSummary");
+    box.innerHTML = "";
+    var list = exportableFilters();
+    var opp = findHelpOpportunities(list);
+    var mergeSlots = 0, dupSlots = 0;
+    opp.merges.forEach(function(m){ mergeSlots += m.slotsFreed; });
+    opp.duplicates.forEach(function(d){ dupSlots += d.slotsFreed; });
+    if (!opp.merges.length && !opp.duplicates.length){
+      summary.textContent = "No merges or duplicates found in " + list.length + " filter" + (list.length === 1 ? "" : "s") + ".";
+      var ok = document.createElement("p"); ok.className = "sub";
+      ok.textContent = "Every filter is already the only one for its sender and actions — nothing to combine or remove.";
+      box.appendChild(ok);
+      return;
+    }
+    summary.textContent = opp.merges.length + " mergeable group" + (opp.merges.length === 1 ? "" : "s") + " (frees " + mergeSlots + " slot" + (mergeSlots === 1 ? "" : "s") + ") · " + opp.duplicates.length + " duplicate set" + (opp.duplicates.length === 1 ? "" : "s") + " (frees " + dupSlots + " slot" + (dupSlots === 1 ? "" : "s") + ") — " + list.length + " filters checked.";
+    if (opp.merges.length){
+      var g = document.createElement("div"); g.className = "help-group";
+      var h = document.createElement("h3"); h.textContent = "Merge into one filter"; g.appendChild(h);
+      var grid = document.createElement("div"); grid.className = "help-grid";
+      opp.merges.forEach(function(m){ grid.appendChild(helpMergeRow(m)); });
+      g.appendChild(grid);
+      box.appendChild(g);
+    }
+    if (opp.duplicates.length){
+      var g2 = document.createElement("div"); g2.className = "help-group";
+      var h2 = document.createElement("h3"); h2.textContent = "Exact duplicates"; g2.appendChild(h2);
+      var grid2 = document.createElement("div"); grid2.className = "help-grid";
+      opp.duplicates.forEach(function(d){ grid2.appendChild(helpDupRow(d)); });
+      g2.appendChild(grid2);
+      box.appendChild(g2);
+    }
+  }
+  function openHelpDialog(opener){
+    helpLastOpener = opener || document.activeElement;
+    renderHelpFindings();
+    if (typeof helpDialog.showModal === "function") helpDialog.showModal();
+    else helpDialog.setAttribute("open", "");
+  }
+  $("helpBtn").addEventListener("click", function (e) { openHelpDialog(e.currentTarget); });
+  $("helpDialogClose").addEventListener("click", function () { helpDialog.close(); });
+  $("helpCloseBtn").addEventListener("click", function () { helpDialog.close(); });
+  helpDialog.addEventListener("click", function (e) {
+    if (e.target === helpDialog) helpDialog.close(); // backdrop click
+  });
+  helpDialog.addEventListener("close", function () {
+    if (helpLastOpener && helpLastOpener.focus) helpLastOpener.focus();
+    helpLastOpener = null;
+  });
+
+
   /* ---------- Clear all ---------- */
   // Always asks first — even when only the starter examples are left.
   function clearAllFilters(){
@@ -1804,6 +2044,10 @@
       getImportDialog: function(){ return importDialog; },
       securityCheck: securityCheck, openSecurityDialog: openSecurityDialog,
       getSecurityDialog: function(){ return securityDialog; },
+      findHelpOpportunities: findHelpOpportunities,
+      openHelpDialog: openHelpDialog,
+      getHelpDialog: function(){ return helpDialog; },
+      applyMerge: applyMerge, applyDuplicates: applyDuplicates,
       setViewMode: setViewMode, getViewMode: function(){ return viewMode; },
       setTableSort: setTableSort, getTableSort: function(){ return tableSort; },
       loadExamples: loadExamples,
