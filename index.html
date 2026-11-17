@@ -79,11 +79,11 @@
   .builder-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
   .builder-head .icon-btn{flex:none}
   /* ---------- Builder dialog ---------- */
-  dialog.builder-dialog,dialog.import-dialog,dialog.security-dialog,dialog.help-dialog{border:1px solid var(--line);border-radius:20px;padding:0;max-width:560px;width:calc(100vw - 32px);background:var(--surface);color:var(--ink);box-shadow:0 24px 60px rgba(0,0,0,.3)}
-  dialog.builder-dialog::backdrop,dialog.import-dialog::backdrop,dialog.security-dialog::backdrop,dialog.help-dialog::backdrop{background:rgba(10,12,14,.5)}
+  dialog.builder-dialog,dialog.import-dialog,dialog.security-dialog,dialog.help-dialog,dialog.labels-dialog{border:1px solid var(--line);border-radius:20px;padding:0;max-width:560px;width:calc(100vw - 32px);background:var(--surface);color:var(--ink);box-shadow:0 24px 60px rgba(0,0,0,.3)}
+  dialog.builder-dialog::backdrop,dialog.import-dialog::backdrop,dialog.security-dialog::backdrop,dialog.help-dialog::backdrop,dialog.labels-dialog::backdrop{background:rgba(10,12,14,.5)}
   dialog.builder-dialog .builder{position:static;box-shadow:none;border:0;border-radius:20px;max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px);overflow-y:auto}
-  dialog.import-dialog,dialog.security-dialog,dialog.help-dialog{padding:22px;max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px);overflow-y:auto}
-  dialog.import-dialog h2,dialog.security-dialog h2,dialog.help-dialog h2{margin:0 0 4px;font-size:19px}
+  dialog.import-dialog,dialog.security-dialog,dialog.help-dialog,dialog.labels-dialog{padding:22px;max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px);overflow-y:auto}
+  dialog.import-dialog h2,dialog.security-dialog h2,dialog.help-dialog h2,dialog.labels-dialog h2{margin:0 0 4px;font-size:19px}
   dialog.import-dialog textarea{min-height:120px;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px}
   .drop-zone{display:block;border:1.5px dashed var(--line);border-radius:14px;padding:26px 18px;text-align:center;color:var(--muted);cursor:pointer;font-size:14px}
   .drop-zone b{color:var(--ink)}
@@ -103,7 +103,7 @@
   .sec-text{flex:1;min-width:0}
   .sec-text b{display:block;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .sec-text span{display:block;font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:2px;overflow-wrap:anywhere}
-  /* ---------- Help me out ---------- */
+  /* ---------- Merge Similar ---------- */
   .help-summary{font-size:14px;font-weight:700;margin:0 0 14px}
   .help-group{margin:0 0 18px}
   .help-group h3{margin:0 0 8px;font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
@@ -115,7 +115,6 @@
   .help-badge{flex:none;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:3px 8px;margin-top:1px}
   .help-badge.merge{color:var(--blue);background:var(--blue-soft)}
   .help-badge.duplicate{color:var(--yellow);background:var(--yellow-soft)}
-  .help-badge.nolabel{color:var(--yellow);background:var(--yellow-soft)}
   .help-text{flex:1;min-width:0}
   .help-text b{display:block;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .help-text span{display:block;font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:2px;overflow-wrap:anywhere}
@@ -129,17 +128,33 @@
   .help-text .help-meta{margin-top:4px}
   .help-text .help-meta b{display:inline;font-size:12.5px;color:var(--ink)}
   .help-text .help-meta .help-meta-note{display:inline;margin-top:0}
+  /* ---------- Missing labels ---------- */
+  .labels-summary{font-size:14px;font-weight:700;margin:0 0 14px}
+  .labels-group{margin:0 0 18px}
+  .labels-group h3{margin:0 0 8px;font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+  .labels-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+  .labels-row{display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0}
+  .labels-badge{flex:none;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:3px 8px;margin-top:1px}
+  .labels-badge.nolabel{color:var(--yellow);background:var(--yellow-soft)}
+  .labels-text{flex:1;min-width:0}
+  .labels-text b{display:block;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .labels-text span{display:block;font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:2px;overflow-wrap:anywhere}
+  .labels-text .labels-meta{margin-top:4px}
+  .labels-text .labels-meta b{display:inline;font-size:12.5px;color:var(--ink)}
+  .labels-actions{display:flex;flex-direction:column;gap:6px;flex:none}
   /* Two-column builder on wide displays: matches left, actions right. */
   @media (min-width:860px){
     dialog.builder-dialog{max-width:920px}
     dialog.security-dialog{max-width:920px}
     dialog.help-dialog{max-width:920px}
+    dialog.labels-dialog{max-width:920px}
     .sec-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
     .help-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+    .labels-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
     .builder-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
     .builder-grid .grid2{grid-template-columns:1fr}
   }
-  .builder .sub,.import-dialog .sub,.security-dialog .sub,.help-dialog .sub{color:var(--muted);font-size:13.5px;line-height:1.55;margin:0 0 16px}
+  .builder .sub,.import-dialog .sub,.security-dialog .sub,.help-dialog .sub,.labels-dialog .sub{color:var(--muted);font-size:13.5px;line-height:1.55;margin:0 0 16px}
   fieldset{border:0;padding:0;margin:0 0 18px}
   legend{font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);padding:0;margin-bottom:10px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -402,7 +417,8 @@
         <button class="btn small" id="importBtn" type="button">Import Filters</button>
         <button class="btn small danger" id="clearAllBtn" type="button">Clear all</button>
         <button class="btn small" id="securityBtn" type="button">Security check</button>
-        <button class="btn small" id="helpBtn" type="button">Help me out</button>
+        <button class="btn small" id="helpBtn" type="button">Merge Similar</button>
+        <button class="btn small" id="labelsBtn" type="button">Missing labels</button>
         <button class="btn small" id="copyXmlBtn" type="button">Copy XML</button>
         <button class="btn small blue" id="downloadBtn" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
@@ -487,17 +503,31 @@
     </div>
   </dialog>
 
-  <!-- HELP ME OUT (modal dialog) -->
+  <!-- MERGE SIMILAR (modal dialog) -->
   <dialog id="helpDialog" class="help-dialog" aria-labelledby="helpDialogTitle">
     <div class="builder-head">
-      <h2 id="helpDialogTitle">Help me out</h2>
+      <h2 id="helpDialogTitle">Merge Similar</h2>
       <button class="icon-btn" id="helpDialogClose" type="button" title="Close" aria-label="Close">✕</button>
     </div>
-    <p class="sub">A review of this list for filters that can be combined or removed, to free up space at Gmail’s 1,000-filter limit — and for filters that don’t apply a label, since that’s what most filters here are for. Nothing changes until you apply a fix — each one is listed separately, and the report refreshes after each one. Download the XML first as a backup. A merge also matches future senders from that domain, not just the ones listed.</p>
+    <p class="sub">A review of this list for filters that can be combined or removed, to free up space at Gmail’s 1,000-filter limit. Nothing changes until you apply a fix — each one is listed separately, and the report refreshes after each one. Download the XML first as a backup. A merge also matches future senders from that domain, not just the ones listed.</p>
     <p class="help-summary" id="helpSummary"></p>
     <div id="helpResults"></div>
     <div class="builder-actions">
       <button class="btn" id="helpCloseBtn" type="button">Close</button>
+    </div>
+  </dialog>
+
+  <!-- MISSING LABELS (modal dialog) -->
+  <dialog id="labelsDialog" class="labels-dialog" aria-labelledby="labelsDialogTitle">
+    <div class="builder-head">
+      <h2 id="labelsDialogTitle">Missing labels</h2>
+      <button class="icon-btn" id="labelsDialogClose" type="button" title="Close" aria-label="Close">✕</button>
+    </div>
+    <p class="sub">These filters don’t apply a label. The report suggests one derived from the sender — review each suggestion, then apply it to add the label action, or open the filter to set a different label. Applying a label changes the filter in the XML Gmail imports. Suggestions come from the sender’s domain, so check them against the labels you already use.</p>
+    <p class="labels-summary" id="labelsSummary"></p>
+    <div id="labelsResults"></div>
+    <div class="builder-actions">
+      <button class="btn" id="labelsCloseBtn" type="button">Close</button>
     </div>
   </dialog>
 
@@ -1678,7 +1708,7 @@
     securityLastOpener = null;
   });
 
-  /* ---------- Help me out ---------- */
+  /* ---------- Merge Similar ---------- */
   // Free up space at Gmail's 1,000-filter limit by combining or
   // removing filters. Two kinds of fix, both read-only until applied:
   //  - merge: several filters from one domain with the same other
@@ -1829,25 +1859,163 @@
     showToast("Merged " + total + " filters into " + opp.merges.length + " — freed " + freed + " slots.");
   }
 
-  /* ---------- No-label info ---------- */
-  // The name is only ever shown here — Gmail's filter XML has no
-  // name field — so a rename would be a local display change only
-  // and doesn't belong in this report (removed 2026-11-16). What
-  // does belong is whether a filter applies a label at all, since
-  // that's what most filters here are for.
+  /* ---------- Missing labels ---------- */
+  // Its own report, separate from Merge Similar: the filters here
+  // don't apply a label, and a label is a real filter action — it
+  // goes in the XML Gmail imports — unlike a name, which is only
+  // ever shown here (a rename step was built and removed 2026-11-16
+  // for exactly that reason). Each filter gets a suggested label
+  // derived from its sender, which the user can apply, or open the
+  // filter to set a different one.
+  function registrableDomain(domain){
+    // Strip subdomains, keeping the registrable part. A short list
+    // of two-part public suffixes keeps "amazon.co.uk" from
+    // becoming "co.uk".
+    var TWO_PART = ["co.uk","org.uk","ac.uk","gov.uk","com.au","net.au","org.au","co.jp","co.nz","com.br","co.in","co.za","com.mx","co.kr"];
+    var parts = (domain || "").toLowerCase().split(".").filter(function(p){ return !!p; });
+    if (!parts.length) return null;
+    if (parts.length >= 3 && TWO_PART.indexOf(parts.slice(-2).join(".")) !== -1) return parts.slice(-3).join(".");
+    return parts.slice(-2).join(".");
+  }
+  function suggestLabel(f){
+    // A label suggested from the sender: the registrable domain's
+    // first label, title-cased. Short labels (3 letters or fewer)
+    // are uppercased — they're usually acronyms (CVS, IRS, UPS,
+    // AOL). A heuristic: "Creditkarma", not "Credit Karma". The
+    // suggestion is shown on the row and reviewed before applying.
+    var dom = domainOf(f);
+    if (!dom) return null;
+    var reg = registrableDomain(dom);
+    if (!reg) return null;
+    var label = reg.split(".")[0];
+    if (!label) return null;
+    if (label.length <= 3) return label.toUpperCase();
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  }
   function noLabelFilters(list){
     return list.filter(function(f){ return !f.actions.label; });
   }
-  function revealHelpFilter(id){
+  function applyLabelToFilter(f, label){
+    // Add the label action to one filter, in place, without
+    // rendering. The name follows the label, the same as the
+    // add/edit flow does when a label is set there — so the list
+    // reads the way a labeled filter reads.
+    f.labels = [label];
+    f.actions.label = label;
+    f.name = label;
+  }
+  function applyLabel(id, label){
+    var live = filterById(id);
+    if (!live || !label) return;
+    applyLabelToFilter(live, label);
+    render();
+    renderLabelsFindings();
+    showToast("Applied the “" + label + "” label.");
+  }
+  function applyAllLabels(){
+    // Apply every suggestion, then render once. A confirm stands
+    // in front of it — a bulk change with no undo, the same class
+    // as Merge all — naming the count and reminding the user the
+    // suggestions come from the sender domain.
+    var list = noLabelFilters(exportableFilters());
+    var withSuggestion = list.filter(function(f){ return !!suggestLabel(f); });
+    if (!withSuggestion.length) return;
+    if (!window.confirm("Apply the suggested label to " + withSuggestion.length + " filter" + (withSuggestion.length === 1 ? "" : "s") + "? The labels are derived from each filter's sender — check them against the labels you already use. This can’t be undone — download the XML first if you haven’t.")) return;
+    withSuggestion.forEach(function(f){ applyLabelToFilter(f, suggestLabel(f)); });
+    render();
+    renderLabelsFindings();
+    showToast("Applied " + withSuggestion.length + " suggested label" + (withSuggestion.length === 1 ? "" : "s") + ".");
+  }
+  function revealLabelsFilter(id){
     // Open the filter itself in the builder dialog — the same detail
-    // view the Edit button opens — so the user can add a label to
-    // it. Closing the report first keeps one dialog open at a time;
-    // focus returns to the Help me out button when the editor closes.
+    // view the Edit button opens — so the user can set a label by
+    // hand. Closing the report first keeps one dialog open at a
+    // time; focus returns to the Missing labels button when the
+    // editor closes.
     var live = filterById(id);
     if (!live) return;
-    helpDialog.close();
-    openEditFilter(live, $("helpBtn"));
+    labelsDialog.close();
+    openEditFilter(live, $("labelsBtn"));
   }
+  var labelsDialog = $("labelsDialog");
+  var labelsLastOpener = null;
+  function labelsRow(f){
+    var row = document.createElement("div"); row.className = "labels-row";
+    var badge = document.createElement("span"); badge.className = "labels-badge nolabel"; badge.textContent = "No label"; row.appendChild(badge);
+    var t = document.createElement("div"); t.className = "labels-text";
+    var name = autoName(f);
+    var b = document.createElement("b"); b.textContent = name; b.title = name; t.appendChild(b);
+    var desc = document.createElement("span");
+    var chips = criteriaChips(f).concat(actionChips(f));
+    desc.textContent = chips.length ? chips.join(" · ") : "No criteria or actions";
+    t.appendChild(desc);
+    var suggestion = suggestLabel(f);
+    var meta = document.createElement("span"); meta.className = "labels-meta";
+    if (suggestion){
+      var s = document.createElement("b"); s.textContent = "Suggested label: " + suggestion;
+      meta.appendChild(s);
+    } else {
+      meta.textContent = "No sender to suggest a label from — open it to add one.";
+    }
+    t.appendChild(meta);
+    row.appendChild(t);
+    var btns = document.createElement("div"); btns.className = "labels-actions";
+    if (suggestion){
+      var apply = document.createElement("button"); apply.type = "button"; apply.className = "btn small"; apply.textContent = "Apply";
+      apply.addEventListener("click", function(){ applyLabel(f.id, suggestion); });
+      btns.appendChild(apply);
+    }
+    var view = document.createElement("button"); view.type = "button"; view.className = "btn small"; view.textContent = "View";
+    view.addEventListener("click", function(){ revealLabelsFilter(f.id); });
+    btns.appendChild(view);
+    row.appendChild(btns);
+    return row;
+  }
+  function renderLabelsFindings(){
+    var box = $("labelsResults");
+    var summary = $("labelsSummary");
+    box.innerHTML = "";
+    var list = exportableFilters();
+    var missing = noLabelFilters(list);
+    var withSuggestion = missing.filter(function(f){ return !!suggestLabel(f); });
+    if (!missing.length){
+      summary.textContent = "Every filter applies a label — " + list.length + " filter" + (list.length === 1 ? "" : "s") + " checked.";
+      var ok = document.createElement("p"); ok.className = "sub";
+      ok.textContent = "Nothing to add here.";
+      box.appendChild(ok);
+      return;
+    }
+    summary.textContent = missing.length + " filter" + (missing.length === 1 ? "" : "s") + " without a label (" + withSuggestion.length + " with a suggestion) — " + list.length + " filters checked.";
+    var g = document.createElement("div"); g.className = "labels-group";
+    var head = document.createElement("div"); head.className = "help-group-head";
+    var h = document.createElement("h3"); h.textContent = "Missing labels"; head.appendChild(h);
+    if (withSuggestion.length){
+      var all = document.createElement("button"); all.type = "button"; all.className = "btn small"; all.textContent = "Apply all (" + withSuggestion.length + ")";
+      all.addEventListener("click", function(){ applyAllLabels(); });
+      head.appendChild(all);
+    }
+    g.appendChild(head);
+    var grid = document.createElement("div"); grid.className = "labels-grid";
+    missing.forEach(function(f){ grid.appendChild(labelsRow(f)); });
+    g.appendChild(grid);
+    box.appendChild(g);
+  }
+  function openLabelsDialog(opener){
+    labelsLastOpener = opener || document.activeElement;
+    renderLabelsFindings();
+    if (typeof labelsDialog.showModal === "function") labelsDialog.showModal();
+    else labelsDialog.setAttribute("open", "");
+  }
+  $("labelsBtn").addEventListener("click", function (e) { openLabelsDialog(e.currentTarget); });
+  $("labelsDialogClose").addEventListener("click", function () { labelsDialog.close(); });
+  $("labelsCloseBtn").addEventListener("click", function () { labelsDialog.close(); });
+  labelsDialog.addEventListener("click", function (e) {
+    if (e.target === labelsDialog) labelsDialog.close(); // backdrop click
+  });
+  labelsDialog.addEventListener("close", function () {
+    if (labelsLastOpener && labelsLastOpener.focus) labelsLastOpener.focus();
+    labelsLastOpener = null;
+  });
   function applyDuplicates(ids){
     var group = ids.map(filterById).filter(function(f){ return !!f; });
     if (group.length < 2) return;
@@ -1906,47 +2074,23 @@
     row.appendChild(apply);
     return row;
   }
-  function helpNoLabelRow(f){
-    var row = document.createElement("div"); row.className = "help-row";
-    var badge = document.createElement("span"); badge.className = "help-badge nolabel"; badge.textContent = "No label"; row.appendChild(badge);
-    var t = document.createElement("div"); t.className = "help-text";
-    var name = autoName(f);
-    var b = document.createElement("b"); b.textContent = name; b.title = name; t.appendChild(b);
-    var desc = document.createElement("span"); desc.className = "help-actions";
-    var chips = criteriaChips(f).concat(actionChips(f));
-    desc.textContent = chips.length ? chips.join(" · ") : "No criteria or actions";
-    t.appendChild(desc);
-    var meta = document.createElement("span"); meta.className = "help-meta";
-    meta.textContent = "Doesn't apply a label — open it to add one.";
-    t.appendChild(meta);
-    row.appendChild(t);
-    var view = document.createElement("button"); view.type = "button"; view.className = "btn small"; view.textContent = "View";
-    view.addEventListener("click", function(){ revealHelpFilter(f.id); });
-    row.appendChild(view);
-    return row;
-  }
   function renderHelpFindings(){
     var box = $("helpResults");
     var summary = $("helpSummary");
     box.innerHTML = "";
     var list = exportableFilters();
     var opp = findHelpOpportunities(list);
-    var noLabel = noLabelFilters(list);
     var mergeSlots = 0, dupSlots = 0;
     opp.merges.forEach(function(m){ mergeSlots += m.slotsFreed; });
     opp.duplicates.forEach(function(d){ dupSlots += d.slotsFreed; });
-    if (!opp.merges.length && !opp.duplicates.length && !noLabel.length){
-      summary.textContent = "No merges or duplicates found in " + list.length + " filter" + (list.length === 1 ? "" : "s") + ", and every filter applies a label.";
+    if (!opp.merges.length && !opp.duplicates.length){
+      summary.textContent = "No merges or duplicates found in " + list.length + " filter" + (list.length === 1 ? "" : "s") + ".";
       var ok = document.createElement("p"); ok.className = "sub";
-      ok.textContent = "Every filter is already the only one for its sender and actions, and applies a label — nothing to combine, remove, or fix.";
+      ok.textContent = "Every filter is already the only one for its sender and actions — nothing to combine or remove.";
       box.appendChild(ok);
       return;
     }
-    var parts = [];
-    parts.push(opp.merges.length + " mergeable group" + (opp.merges.length === 1 ? "" : "s") + " (frees " + mergeSlots + " slot" + (mergeSlots === 1 ? "" : "s") + ")");
-    parts.push(opp.duplicates.length + " duplicate set" + (opp.duplicates.length === 1 ? "" : "s") + " (frees " + dupSlots + " slot" + (dupSlots === 1 ? "" : "s") + ")");
-    if (noLabel.length) parts.push(noLabel.length + " filter" + (noLabel.length === 1 ? "" : "s") + " without a label");
-    summary.textContent = parts.join(" · ") + " — " + list.length + " filters checked.";
+    summary.textContent = opp.merges.length + " mergeable group" + (opp.merges.length === 1 ? "" : "s") + " (frees " + mergeSlots + " slot" + (mergeSlots === 1 ? "" : "s") + ") · " + opp.duplicates.length + " duplicate set" + (opp.duplicates.length === 1 ? "" : "s") + " (frees " + dupSlots + " slot" + (dupSlots === 1 ? "" : "s") + ") — " + list.length + " filters checked.";
     if (opp.merges.length){
       var g = document.createElement("div"); g.className = "help-group";
       var head = document.createElement("div"); head.className = "help-group-head";
@@ -1967,16 +2111,6 @@
       opp.duplicates.forEach(function(d){ grid2.appendChild(helpDupRow(d)); });
       g2.appendChild(grid2);
       box.appendChild(g2);
-    }
-    // Every filter without a label, each with a View button to open
-    // it in the editor and add one.
-    if (noLabel.length){
-      var g4 = document.createElement("div"); g4.className = "help-group";
-      var h4 = document.createElement("h3"); h4.textContent = "No label"; g4.appendChild(h4);
-      var grid4 = document.createElement("div"); grid4.className = "help-grid";
-      noLabel.forEach(function(f){ grid4.appendChild(helpNoLabelRow(f)); });
-      g4.appendChild(grid4);
-      box.appendChild(g4);
     }
   }
   function openHelpDialog(opener){
@@ -2167,11 +2301,15 @@
       securityCheck: securityCheck, openSecurityDialog: openSecurityDialog,
       getSecurityDialog: function(){ return securityDialog; },
       findHelpOpportunities: findHelpOpportunities,
+      suggestLabel: suggestLabel,
       noLabelFilters: noLabelFilters,
       openHelpDialog: openHelpDialog,
       getHelpDialog: function(){ return helpDialog; },
+      openLabelsDialog: openLabelsDialog,
+      getLabelsDialog: function(){ return labelsDialog; },
       applyMerge: applyMerge, applyDuplicates: applyDuplicates,
       applyAllMerges: applyAllMerges,
+      applyLabel: applyLabel, applyAllLabels: applyAllLabels,
       setViewMode: setViewMode, getViewMode: function(){ return viewMode; },
       setTableSort: setTableSort, getTableSort: function(){ return tableSort; },
       loadExamples: loadExamples,

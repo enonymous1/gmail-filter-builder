@@ -1024,7 +1024,24 @@ test("help meta line is styled apart from the actions line", () => {
   assert.match(html, /\.help-group-head\{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 8px\}/);
 });
 
-test("help dialog lists every no-label filter, with a View button", () => {
+test("suggestLabel derives a label from the sender's domain", () => {
+  const app = runApp(makeStorage());
+  const mk = (data) => app.normalizeFilter(data);
+  assert.equal(app.suggestLabel(mk({ from: "store-news@amazon.com" })), "Amazon");
+  assert.equal(app.suggestLabel(mk({ from: "advertise-noreply@support.facebook.com" })), "Facebook");
+  assert.equal(app.suggestLabel(mk({ from: "no-reply@rs.email.nextdoor.com" })), "Nextdoor");
+  // Compound words stay joined — the heuristic can't split them.
+  assert.equal(app.suggestLabel(mk({ from: "a@notifications3.creditkarma.com" })), "Creditkarma");
+  // Short labels are uppercased — usually acronyms.
+  assert.equal(app.suggestLabel(mk({ from: "extracare@pharmacy.cvs.com" })), "CVS");
+  // A two-part public suffix doesn't become the label.
+  assert.equal(app.suggestLabel(mk({ from: "a@shop.amazon.co.uk" })), "Amazon");
+  assert.equal(app.suggestLabel(mk({ from: "a@x.com" })), "X");
+  // No sender, no suggestion.
+  assert.equal(app.suggestLabel(mk({ subject: "hello" })), null);
+});
+
+test("labels dialog lists every no-label filter, with Apply and View", () => {
   const app = runApp(makeStorage());
   const doc = app._document;
   const mk = (data) => app.normalizeFilter(data);
@@ -1034,21 +1051,75 @@ test("help dialog lists every no-label filter, with a View button", () => {
     // Labeled — not no-label at all.
     mk({ from: "b@x.com", actions: { skip: true, label: "News" } }),
   ]);
-  app.openHelpDialog();
-  const summary = doc.getElementById("helpSummary").textContent;
-  assert.ok(summary.indexOf("2 filters without a label") !== -1);
-  const results = doc.getElementById("helpResults");
-  // The only section: No label. (No merges or duplicates.)
-  const noLabelGroup = results.children[0];
-  assert.equal(noLabelGroup.children[0].textContent, "No label");
-  const grid = noLabelGroup.children[1];
+  app.openLabelsDialog();
+  const summary = doc.getElementById("labelsSummary").textContent;
+  assert.ok(summary.indexOf("2 filters without a label (1 with a suggestion)") !== -1);
+  const results = doc.getElementById("labelsResults");
+  const group = results.children[0];
+  // The header carries the Apply all button (1 suggestion).
+  assert.equal(group.children[0].children[0].textContent, "Missing labels");
+  assert.equal(group.children[0].children[1].textContent, "Apply all (1)");
+  const grid = group.children[1];
   assert.equal(grid.children.length, 2);
-  const row = grid.children[1];
-  assert.equal(row.children[0].textContent, "No label");
-  assert.ok(row.children[1].children[0].textContent.indexOf("Subject: hello") !== -1);
-  // View opens the filter in the editor (the help dialog closes first).
-  row.children[2]._listeners.click[0]();
+  // Row 0: has a suggestion — Apply and View.
+  const row0 = grid.children[0];
+  assert.equal(row0.children[0].textContent, "No label");
+  assert.ok(row0.children[1].children[2].children[0].textContent.indexOf("Suggested label: Amazon") !== -1);
+  assert.equal(row0.children[2].children.length, 2);
+  assert.equal(row0.children[2].children[0].textContent, "Apply");
+  assert.equal(row0.children[2].children[1].textContent, "View");
+  // Row 1: no sender — View only, and the meta says so.
+  const row1 = grid.children[1];
+  assert.ok(row1.children[1].children[0].textContent.indexOf("Subject: hello") !== -1);
+  assert.ok(row1.children[1].children[2].textContent.indexOf("No sender to suggest a label from") !== -1);
+  assert.equal(row1.children[2].children.length, 1);
+  assert.equal(row1.children[2].children[0].textContent, "View");
+  // Apply adds the label action to that filter.
+  row0.children[2].children[0]._listeners.click[0]();
+  const after = app.getFilters();
+  assert.equal(after[0].actions.label, "Amazon");
+  assert.equal(after[0].labels.join(","), "Amazon");
+  // View opens the filter in the editor (the labels dialog closes first).
+  row1.children[2].children[0]._listeners.click[0]();
   assert.equal(doc.getElementById("filterDialog").open, true);
+});
+
+test("applying a suggested label sets the label action and the export carries it", () => {
+  const app = runApp(makeStorage());
+  const mk = (data) => app.normalizeFilter(data);
+  app.setFilters([
+    mk({ from: "a@amazon.com", actions: { skip: true } }),
+  ]);
+  const f = app.getFilters()[0];
+  app.applyLabel(f.id, app.suggestLabel(f));
+  const after = app.getFilters()[0];
+  assert.equal(after.actions.label, "Amazon");
+  assert.equal(after.labels.join(","), "Amazon");
+  // The name follows the label, the same as the add/edit flow.
+  assert.equal(after.name, "Amazon");
+  // A label is a real filter action — the XML carries it.
+  const xml = app.buildXML();
+  assert.ok(xml.indexOf('name="label" value="Amazon"') !== -1);
+});
+
+test("apply all labels applies every suggestion and asks first", () => {
+  const app = runApp(makeStorage());
+  const mk = (data) => app.normalizeFilter(data);
+  app.setFilters([
+    mk({ from: "a@amazon.com", actions: { skip: true } }),
+    mk({ from: "a@facebook.com", actions: { skip: true } }),
+    // No sender — no suggestion, skipped by Apply all.
+    mk({ subject: "hello", actions: { skip: true } }),
+  ]);
+  app._setConfirm(false);
+  app.applyAllLabels();
+  assert.equal(app.getFilters()[0].actions.label, "");
+  app._setConfirm(true);
+  app.applyAllLabels();
+  const after = app.getFilters();
+  assert.equal(after[0].actions.label, "Amazon");
+  assert.equal(after[1].actions.label, "Facebook");
+  assert.equal(after[2].actions.label, "");
 });
 
 test("noLabelFilters returns every filter without a label action", () => {
