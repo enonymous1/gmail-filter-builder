@@ -301,6 +301,27 @@ test("theme override blocks carry the light and dark palettes", () => {
   assert.match(html, /html\[data-theme="dark"\]\{[^}]*--bg:#121416/);
 });
 
+test("filter count sits in the view row, right of the Cards/Table toggle", () => {
+  const html = fs.readFileSync(INDEX, "utf8");
+  // The count is no longer in the toolbar (which now holds only buttons).
+  const toolbarAt = html.indexOf('<div class="toolbar">');
+  const toolbarHtml = html.slice(toolbarAt, html.indexOf("</div>", toolbarAt));
+  assert.ok(!toolbarHtml.includes("filterCount"));
+  // The view row holds the toggle first, then the count on the right.
+  assert.match(html, /<div class="view-row" id="viewRow">\s*<div class="view-toggle" id="viewToggle"[\s\S]*?<span class="count" id="filterCount"><\/span>\s*<\/div>/);
+});
+
+test("view row (toggle + count) hides when the list is empty", () => {
+  const app = runApp(makeStorage());
+  const doc = app._document;
+  app.setFilters([]);
+  assert.equal(doc.getElementById("viewRow").style.display, "none");
+  const f = app.normalizeFilter({ from: "a@x.com", actions: { skip: true } });
+  app.setFilters([f]);
+  assert.equal(doc.getElementById("viewRow").style.display, "");
+  assert.match(doc.getElementById("filterCount").innerHTML, /<b>1<\/b> \/ 1000/);
+});
+
 test("primary button is green and the dialog delete button is filled red", () => {
   const html = fs.readFileSync(INDEX, "utf8");
   assert.match(html, /\.btn\.primary\{background:var\(--green\);border-color:var\(--green\);color:#fff\}/);
